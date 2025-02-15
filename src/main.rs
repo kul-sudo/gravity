@@ -9,8 +9,13 @@ use quadtree::{NodeID, QuadtreeNode, Square};
 use std::{collections::HashMap, f32::consts::PI, time::Instant};
 
 const G: f32 = 0.05;
-const INITIAL_MASS: f32 = 1.0;
+const INITIAL_MASS: f32 = 0.5;
 const INITIAL_ABS_SPEED: f32 = 0.05;
+
+const FONT_SIZE: u16 = 50;
+
+const DIRECT_COLOR: Color = GREEN;
+const BARNES_HUT_COLOR: Color = RED;
 
 fn window_conf() -> Conf {
     Conf {
@@ -56,26 +61,38 @@ async fn main() {
     let mut barnes_hut_bodies = bodies.clone();
 
     loop {
-        Body::update_bodies(&mut barnes_hut_bodies);
-
-        let duration_barnes_hut =
-            Body::handle_barnes_hut(&mut barnes_hut_bodies, &mut quadtree_nodes);
-        draw_text(
-            &duration_barnes_hut.as_millis().to_string(),
-            20.0,
-            20.0,
-            25.0,
-            WHITE,
-        );
-
         Body::update_bodies(&mut bodies);
 
-        let duration_direct = Body::handle_direct_method(&mut bodies);
-        draw_text(&duration_direct.as_millis().to_string(), 20.0, 40.0, 25.0, WHITE);
+        let duration = Body::handle_direct_method(&mut bodies)
+            .as_millis()
+            .to_string();
+        let measured = measure_text(&duration, None, FONT_SIZE, 1.0);
+
+        draw_text(
+            &format!("Direct: {} ms", duration),
+            0.0,
+            measured.height,
+            FONT_SIZE as f32,
+            DIRECT_COLOR,
+        );
+
+        Body::update_bodies(&mut barnes_hut_bodies);
+
+        let duration = Body::handle_barnes_hut(&mut barnes_hut_bodies, &mut quadtree_nodes)
+            .as_millis()
+            .to_string();
+
+        draw_text(
+            &format!("Barnes-Hut: {} ms", duration),
+            0.0,
+            measured.height * 2.5,
+            FONT_SIZE as f32,
+            BARNES_HUT_COLOR,
+        );
 
         for (hashmap, color) in [
-            (&barnes_hut_bodies, RED),
-            (&bodies, GREEN)
+            (&barnes_hut_bodies, BARNES_HUT_COLOR),
+            (&bodies, DIRECT_COLOR),
         ] {
             for body in hashmap.values() {
                 draw_circle(body.pos.re(), body.pos.im(), body.get_radius(), color);

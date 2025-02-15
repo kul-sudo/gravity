@@ -6,7 +6,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub const BODIES_N: usize = 1200;
+pub const BODIES_N: usize = 3600;
 
 pub type BodyID = Instant;
 

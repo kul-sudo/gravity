@@ -5,11 +5,12 @@ use std::{
     time::Instant,
 };
 
-use crate::body::{Body, BodyID};
+use crate::body::{Body, BodyID, BODIES_N};
 use std::sync::{LazyLock, RwLock};
 
 pub type NodeID = Instant;
 
+const BORDER_THICKNESS: f32 = 1.0;
 static THETA: LazyLock<RwLock<f32>> = LazyLock::new(|| RwLock::new(1.0));
 
 #[derive(Clone)]
@@ -54,15 +55,13 @@ impl QuadtreeNode {
     pub fn draw(id: NodeID, quadtree_nodes: &mut HashMap<NodeID, Self>) {
         let current_node = quadtree_nodes.get(&id).unwrap();
 
-        //let thickness = 0.3 * (quadtree_nodes.len() as f32).powf(1.0 / 3.0);
-
         if let Some(children) = current_node.children {
             draw_line(
                 current_node.square.top_left.re(),
                 current_node.square.top_left.im() + current_node.square.size / 2.0,
                 current_node.square.top_left.re() + current_node.square.size,
                 current_node.square.top_left.im() + current_node.square.size / 2.0,
-                1.0,
+                BORDER_THICKNESS,
                 GREEN,
             );
 
@@ -71,7 +70,7 @@ impl QuadtreeNode {
                 current_node.square.top_left.im(),
                 current_node.square.top_left.re() + current_node.square.size / 2.0,
                 current_node.square.top_left.im() + current_node.square.size,
-                1.0,
+                BORDER_THICKNESS,
                 GREEN,
             );
 
