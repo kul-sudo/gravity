@@ -1,4 +1,5 @@
 mod body;
+mod grid;
 mod quadtree;
 
 use ::rand::{Rng, SeedableRng, rngs::StdRng};
@@ -32,17 +33,26 @@ async fn main() {
     set_fullscreen(true);
     next_frame().await;
 
-    let mut quadtree_nodes: HashMap<NodeID, QuadtreeNode> = HashMap::new();
+    let mut zoom = 1.0;
 
+    let mut camera =
+        Camera2D::from_display_rect(Rect::new(0.0, 0.0, screen_width(), screen_height()));
+
+    let mut quadtree_nodes: HashMap<NodeID, QuadtreeNode> = HashMap::new();
     let mut bodies = HashMap::with_capacity(BODIES_N);
 
-    let mut total_speed = Complex::new(0.0, 0.0);
+    let eccentricity = (1.0 - (screen_height() / screen_width()).powi(2)).sqrt();
+
+    let center = Complex::new(screen_width() / 2.0, screen_height() / 2.0);
+
+    let mut total_speed = Complex::ZERO;
     for _ in 0..BODIES_N {
+        let angle = rng.random_range(0.0..2.0 * PI);
+        let radius =
+            (screen_height() / 2.0) / ((1.0 - (eccentricity * angle.cos()).powi(2)) as f32).sqrt();
+        let distance_from_center = radius * (rng.random_range(0.0..1.0).sqrt());
         let body = Body {
-            pos: Complex::new(
-                rng.random_range(0.0..screen_width()),
-                rng.random_range(0.0..screen_height()),
-            ),
+            pos: center + Complex::from_polar(distance_from_center, angle),
             speed: Complex::from_polar(INITIAL_ABS_SPEED, rng.random_range(0.0..2.0 * PI)),
             mass: INITIAL_MASS,
         };
@@ -59,8 +69,22 @@ async fn main() {
     }
 
     let mut barnes_hut_bodies = bodies.clone();
+    let mut grid_bodies = bodies.clone();
 
     loop {
+        if is_key_released(KeyCode::Minus) {
+            zoom /= 2.0;
+        } else if is_key_released(KeyCode::Equal) {
+            zoom *= 2.0;
+        }
+
+        camera.zoom = vec2(
+            1.0 / screen_width() * 2.0 * zoom,
+            1.0 / screen_height() * 2.0 * zoom,
+        );
+
+        set_camera(&camera);
+
         Body::update_bodies(&mut bodies);
 
         let duration = Body::handle_direct_method(&mut bodies)
@@ -78,7 +102,7 @@ async fn main() {
 
         Body::update_bodies(&mut barnes_hut_bodies);
 
-        let duration = Body::handle_barnes_hut(&mut barnes_hut_bodies, &mut quadtree_nodes)
+        let duration = Body::handle_barnes_hut(&mut barnes_hut_bodies, &mut quadtree_nodes, zoom)
             .as_millis()
             .to_string();
 

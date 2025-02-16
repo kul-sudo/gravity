@@ -1,4 +1,7 @@
-use crate::{G, NodeID, QuadtreeNode, Square};
+use crate::{
+    G, NodeID, QuadtreeNode, Square,
+    quadtree::{BORDER_COLOR, BORDER_THICKNESS, Rectangle},
+};
 use macroquad::prelude::*;
 use num_complex::{Complex, ComplexFloat};
 use std::{
@@ -6,7 +9,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub const BODIES_N: usize = 3600;
+pub const BODIES_N: usize = 1200;
 
 pub type BodyID = Instant;
 
@@ -15,6 +18,29 @@ pub struct Body {
     pub pos: Complex<f32>,
     pub speed: Complex<f32>,
     pub mass: f32,
+}
+
+pub fn get_rectangle(bodies: &mut HashMap<BodyID, Body>) -> Rectangle {
+    let mut topmost = f32::INFINITY;
+    let mut bottommost = f32::NEG_INFINITY;
+
+    let mut leftmost = f32::INFINITY;
+    let mut rightmost = f32::NEG_INFINITY;
+
+    for body in bodies.values() {
+        let radius = body.get_radius();
+
+        topmost = topmost.min(body.pos.im());
+        bottommost = bottommost.max(body.pos.im() + radius);
+
+        leftmost = leftmost.min(body.pos.re());
+        rightmost = rightmost.max(body.pos.re() + radius);
+    }
+
+    Rectangle {
+        top_left: Complex::new(leftmost, topmost),
+        bottom_right: Complex::new(rightmost, bottommost),
+    }
 }
 
 impl Body {
@@ -141,57 +167,67 @@ impl Body {
     pub fn handle_barnes_hut(
         bodies: &mut HashMap<BodyID, Self>,
         quadtree_nodes: &mut HashMap<NodeID, QuadtreeNode>,
+        zoom: f32,
     ) -> Duration {
         let start = Instant::now();
 
         quadtree_nodes.clear();
 
-        let square = Square {
-            top_left: Complex::new(0.0, -(screen_width() - screen_height()) / 2.0),
-            size: screen_width(),
-        };
-        let mut bodies_in_root = HashSet::new();
-        let mut bodies_not_in_root = HashSet::new();
-        for (body_id, body) in bodies.iter() {
-            if square.contains(body.pos) {
-                bodies_in_root.insert(body_id.clone());
-            } else {
-                bodies_not_in_root.insert(body_id.clone());
-            }
+        let rectangle = get_rectangle(bodies);
+
+        let width = rectangle.bottom_right.re() - rectangle.top_left.re();
+        let height = rectangle.bottom_right.im() - rectangle.top_left.im();
+
+        let top_left;
+        let size;
+
+        if width >= height {
+            top_left = Complex::new(
+                rectangle.top_left.re(),
+                rectangle.top_left.im() - (width - height) / 2.0,
+            );
+            size = width;
+        } else {
+            top_left = Complex::new(
+                rectangle.top_left.re() - (height - width) / 2.0,
+                rectangle.top_left.im(),
+            );
+            size = height;
         }
+
+        let square = Square { top_left, size };
+
+        let bodies_keys = bodies.keys().cloned().collect::<HashSet<_>>();
 
         let root_id = NodeID::now();
         let root = QuadtreeNode {
             children: None,
-            data: bodies_in_root.clone(),
+            bodies: bodies_keys.clone(),
             square,
             total_mass: 0.0,
-            pos: Complex::new(0.0, 0.0),
+            pos: Complex::ZERO,
         };
-        quadtree_nodes.insert(root_id, root);
+        quadtree_nodes.insert(root_id, root.clone());
         QuadtreeNode::split(root_id, bodies, quadtree_nodes);
 
-        for body_id in bodies_in_root.iter() {
-            QuadtreeNode::adjust_speed(root_id, *body_id, bodies, quadtree_nodes);
+        for body_id in bodies_keys {
+            QuadtreeNode::adjust_speed(root_id, body_id, bodies, quadtree_nodes);
         }
 
         let end = start.elapsed();
 
-        let bodies_keys = bodies.keys().cloned().collect::<Vec<_>>();
-        for lhs_id in bodies_not_in_root.iter() {
-            for rhs_id in &bodies_keys {
-                if lhs_id != rhs_id {
-                    let [Some(lhs), Some(rhs)] = bodies.get_disjoint_mut([&lhs_id, &rhs_id]) else {
-                        panic!()
-                    };
+        let border = BORDER_THICKNESS / zoom;
 
-                    lhs.adjust_speed(rhs.pos, rhs.mass);
-                    rhs.adjust_speed(lhs.pos, lhs.mass);
-                }
-            }
-        }
+        draw_rectangle_lines(
+            root.square.top_left.re(),
+            root.square.top_left.im(),
+            root.square.size,
+            root.square.size,
+            border,
+            BORDER_COLOR,
+        );
 
-        //QuadtreeNode::draw(root_id, quadtree_nodes);
+        QuadtreeNode::draw(root_id, quadtree_nodes, zoom);
 
         return end;
     }

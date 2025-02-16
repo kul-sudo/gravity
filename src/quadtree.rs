@@ -5,12 +5,14 @@ use std::{
     time::Instant,
 };
 
-use crate::body::{Body, BodyID, BODIES_N};
+use crate::body::{BODIES_N, Body, BodyID};
 use std::sync::{LazyLock, RwLock};
 
 pub type NodeID = Instant;
 
-const BORDER_THICKNESS: f32 = 1.0;
+pub const BORDER_THICKNESS: f32 = 1.0;
+pub const BORDER_COLOR: Color = GREEN;
+
 static THETA: LazyLock<RwLock<f32>> = LazyLock::new(|| RwLock::new(1.0));
 
 #[derive(Clone)]
@@ -45,15 +47,17 @@ impl Rectangle {
 #[derive(Clone)]
 pub struct QuadtreeNode {
     pub children: Option<[[NodeID; 2]; 2]>,
-    pub data: HashSet<BodyID>,
+    pub bodies: HashSet<BodyID>,
     pub square: Square,
     pub total_mass: f32,
     pub pos: Complex<f32>,
 }
 
 impl QuadtreeNode {
-    pub fn draw(id: NodeID, quadtree_nodes: &mut HashMap<NodeID, Self>) {
+    pub fn draw(id: NodeID, quadtree_nodes: &mut HashMap<NodeID, Self>, zoom: f32) {
         let current_node = quadtree_nodes.get(&id).unwrap();
+
+        let border = BORDER_THICKNESS / zoom;
 
         if let Some(children) = current_node.children {
             draw_line(
@@ -61,8 +65,8 @@ impl QuadtreeNode {
                 current_node.square.top_left.im() + current_node.square.size / 2.0,
                 current_node.square.top_left.re() + current_node.square.size,
                 current_node.square.top_left.im() + current_node.square.size / 2.0,
-                BORDER_THICKNESS,
-                GREEN,
+                border,
+                BORDER_COLOR,
             );
 
             draw_line(
@@ -70,13 +74,12 @@ impl QuadtreeNode {
                 current_node.square.top_left.im(),
                 current_node.square.top_left.re() + current_node.square.size / 2.0,
                 current_node.square.top_left.im() + current_node.square.size,
-                BORDER_THICKNESS,
-                GREEN,
+                border,
+                BORDER_COLOR,
             );
 
             for child in children.iter().flatten() {
-                //dbg!(quadtree_nodes.get(child).unwrap().children);
-                Self::draw(*child, quadtree_nodes);
+                Self::draw(*child, quadtree_nodes, zoom);
             }
         }
     }
@@ -90,17 +93,17 @@ impl QuadtreeNode {
         let current_node = quadtree_nodes.get(&id).unwrap();
         let body = bodies.get_mut(&body_id).unwrap();
 
-        match current_node.data.len() {
+        match current_node.bodies.len() {
             0 => return,
             1 => {
-                if !current_node.data.contains(&body_id) {
+                if !current_node.bodies.contains(&body_id) {
                     body.adjust_speed(current_node.pos, current_node.total_mass);
                 }
             }
             _ => {
                 let r = (current_node.pos - body.pos).abs();
                 if current_node.square.size / r <= *THETA.read().unwrap()
-                    && !current_node.data.contains(&body_id)
+                    && !current_node.bodies.contains(&body_id)
                 {
                     body.adjust_speed(current_node.pos, current_node.total_mass);
                 } else {
@@ -119,7 +122,7 @@ impl QuadtreeNode {
     ) {
         let current_node = quadtree_nodes.get(&id).unwrap();
 
-        if current_node.data.len() <= 1 {
+        if current_node.bodies.len() <= 1 {
             return;
         }
 
@@ -135,26 +138,26 @@ impl QuadtreeNode {
                 let child_id = NodeID::now();
                 let mut child = Self {
                     children: None,
-                    data: HashSet::new(),
+                    bodies: HashSet::new(),
                     square: Square {
                         top_left,
                         size: current_node.square.size / 2.0,
                     },
                     total_mass: 0.0,
-                    pos: Complex::new(0.0, 0.0),
+                    pos: Complex::ZERO,
                 };
 
-                for body_id in &current_node.data {
+                for body_id in &current_node.bodies {
                     let body = bodies.get(body_id).unwrap();
                     if child.square.contains(body.pos) {
-                        child.data.insert(*body_id);
+                        child.bodies.insert(*body_id);
                         child.total_mass += body.mass;
                     }
                 }
 
                 if child.total_mass != 0.0 {
                     child.pos = child
-                        .data
+                        .bodies
                         .iter()
                         .map(|body_id| {
                             let value = bodies.get(body_id).unwrap();
