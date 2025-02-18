@@ -10,13 +10,14 @@ use quadtree::{NodeID, QuadtreeNode, Square};
 use std::{collections::HashMap, f32::consts::PI, time::Instant};
 
 const G: f32 = 0.05;
-const INITIAL_MASS: f32 = 0.5;
+const INITIAL_MASS: f32 = 1.0;
 const INITIAL_ABS_SPEED: f32 = 0.05;
 
 const FONT_SIZE: u16 = 50;
 
 const DIRECT_COLOR: Color = GREEN;
 const BARNES_HUT_COLOR: Color = RED;
+const GRID_COLOR: Color = BLUE;
 
 fn window_conf() -> Conf {
     Conf {
@@ -38,7 +39,6 @@ async fn main() {
     let mut camera =
         Camera2D::from_display_rect(Rect::new(0.0, 0.0, screen_width(), screen_height()));
 
-    let mut quadtree_nodes: HashMap<NodeID, QuadtreeNode> = HashMap::new();
     let mut bodies = HashMap::with_capacity(BODIES_N);
 
     let eccentricity = (1.0 - (screen_height() / screen_width()).powi(2)).sqrt();
@@ -90,6 +90,7 @@ async fn main() {
         let duration = Body::handle_direct_method(&mut bodies)
             .as_millis()
             .to_string();
+
         let measured = measure_text(&duration, None, FONT_SIZE, 1.0);
 
         draw_text(
@@ -102,7 +103,7 @@ async fn main() {
 
         Body::update_bodies(&mut barnes_hut_bodies);
 
-        let duration = Body::handle_barnes_hut(&mut barnes_hut_bodies, &mut quadtree_nodes, zoom)
+        let duration = Body::handle_barnes_hut(&mut barnes_hut_bodies, zoom)
             .as_millis()
             .to_string();
 
@@ -114,9 +115,22 @@ async fn main() {
             BARNES_HUT_COLOR,
         );
 
+        Body::update_bodies(&mut grid_bodies);
+
+        let duration = Body::handle_grid(&mut grid_bodies).as_millis().to_string();
+
+        draw_text(
+            &format!("Grid: {} ms", duration),
+            0.0,
+            measured.height * 2.5,
+            FONT_SIZE as f32,
+            GRID_COLOR,
+        );
+
         for (hashmap, color) in [
             (&barnes_hut_bodies, BARNES_HUT_COLOR),
             (&bodies, DIRECT_COLOR),
+            (&grid_bodies, GRID_COLOR),
         ] {
             for body in hashmap.values() {
                 draw_circle(body.pos.re(), body.pos.im(), body.get_radius(), color);
