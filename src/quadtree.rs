@@ -5,13 +5,13 @@ use std::{
     time::Instant,
 };
 
-use crate::body::{BODIES_N, Body, BodyID};
+use crate::{
+    BORDER_COLOR, BORDER_THICKNESS,
+    body::{Body, BodyID},
+};
 use std::sync::{LazyLock, RwLock};
 
 pub type NodeID = Instant;
-
-pub const BORDER_THICKNESS: f32 = 1.0;
-pub const BORDER_COLOR: Color = GREEN;
 
 static THETA: LazyLock<RwLock<f32>> = LazyLock::new(|| RwLock::new(1.0));
 
@@ -94,7 +94,7 @@ impl QuadtreeNode {
         let body = bodies.get_mut(&body_id).unwrap();
 
         match current_node.bodies.len() {
-            0 => return,
+            0 => (),
             1 => {
                 if !current_node.bodies.contains(&body_id) {
                     body.adjust_speed(current_node.pos, current_node.total_mass);

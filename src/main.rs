@@ -1,23 +1,28 @@
+mod barnes_hut;
 mod body;
+mod direct;
 mod grid;
 mod quadtree;
 
 use ::rand::{Rng, SeedableRng, rngs::StdRng};
+use barnes_hut::BarnesHut;
 use body::{BODIES_N, Body, BodyID};
+use direct::Direct;
+use grid::Grid;
 use macroquad::prelude::*;
 use num_complex::{Complex, ComplexFloat};
 use quadtree::{NodeID, QuadtreeNode, Square};
-use std::{collections::HashMap, f32::consts::PI, time::Instant};
+use std::{collections::HashMap, f32::consts::PI};
 
 const G: f32 = 0.05;
 const INITIAL_MASS: f32 = 1.0;
 const INITIAL_ABS_SPEED: f32 = 0.05;
 
+const ZOOM_STEP: f32 = 1.2;
 const FONT_SIZE: u16 = 50;
 
-const DIRECT_COLOR: Color = GREEN;
-const BARNES_HUT_COLOR: Color = RED;
-const GRID_COLOR: Color = BLUE;
+pub const BORDER_THICKNESS: f32 = 1.0;
+pub const BORDER_COLOR: Color = GREEN;
 
 fn window_conf() -> Conf {
     Conf {
@@ -48,8 +53,7 @@ async fn main() {
     let mut total_speed = Complex::ZERO;
     for _ in 0..BODIES_N {
         let angle = rng.random_range(0.0..2.0 * PI);
-        let radius =
-            (screen_height() / 2.0) / ((1.0 - (eccentricity * angle.cos()).powi(2)) as f32).sqrt();
+        let radius = (screen_height() / 2.0) / (1.0 - (eccentricity * angle.cos()).powi(2)).sqrt();
         let distance_from_center = radius * (rng.random_range(0.0..1.0).sqrt());
         let body = Body {
             pos: center + Complex::from_polar(distance_from_center, angle),
@@ -73,24 +77,22 @@ async fn main() {
 
     loop {
         if is_key_released(KeyCode::Minus) {
-            zoom /= 2.0;
+            zoom /= ZOOM_STEP;
         } else if is_key_released(KeyCode::Equal) {
-            zoom *= 2.0;
+            zoom *= ZOOM_STEP;
         }
 
         camera.zoom = vec2(
-            1.0 / screen_width() * 2.0 * zoom,
-            1.0 / screen_height() * 2.0 * zoom,
+            2.0 / screen_width() * zoom,
+            2.0 / screen_height() * zoom,
         );
 
         set_camera(&camera);
 
+        // Direct
         Body::update_bodies(&mut bodies);
 
-        let duration = Body::handle_direct_method(&mut bodies)
-            .as_millis()
-            .to_string();
-
+        let duration = Direct::handle(&mut bodies).as_millis().to_string();
         let measured = measure_text(&duration, None, FONT_SIZE, 1.0);
 
         draw_text(
@@ -98,39 +100,41 @@ async fn main() {
             0.0,
             measured.height,
             FONT_SIZE as f32,
-            DIRECT_COLOR,
+            Direct::COLOR,
         );
 
+        // Barnes-Hut
         Body::update_bodies(&mut barnes_hut_bodies);
 
-        let duration = Body::handle_barnes_hut(&mut barnes_hut_bodies, zoom)
+        let duration = BarnesHut::handle(&mut barnes_hut_bodies, zoom)
             .as_millis()
             .to_string();
 
         draw_text(
             &format!("Barnes-Hut: {} ms", duration),
             0.0,
-            measured.height * 2.5,
+            measured.height * 2.0,
             FONT_SIZE as f32,
-            BARNES_HUT_COLOR,
+            BarnesHut::COLOR,
         );
 
+        // Grid
         Body::update_bodies(&mut grid_bodies);
 
-        let duration = Body::handle_grid(&mut grid_bodies).as_millis().to_string();
+        let duration = Grid::handle(&mut grid_bodies, zoom).as_millis().to_string();
 
         draw_text(
             &format!("Grid: {} ms", duration),
             0.0,
-            measured.height * 2.5,
+            measured.height * 3.0,
             FONT_SIZE as f32,
-            GRID_COLOR,
+            Grid::COLOR,
         );
 
         for (hashmap, color) in [
-            (&barnes_hut_bodies, BARNES_HUT_COLOR),
-            (&bodies, DIRECT_COLOR),
-            (&grid_bodies, GRID_COLOR),
+            (&grid_bodies, Grid::COLOR),
+            (&barnes_hut_bodies, BarnesHut::COLOR),
+            (&bodies, Direct::COLOR),
         ] {
             for body in hashmap.values() {
                 draw_circle(body.pos.re(), body.pos.im(), body.get_radius(), color);
