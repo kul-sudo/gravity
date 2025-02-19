@@ -2,7 +2,6 @@ mod barnes_hut;
 mod body;
 mod direct;
 mod grid;
-mod quadtree;
 
 use ::rand::{Rng, SeedableRng, rngs::StdRng};
 use barnes_hut::BarnesHut;
@@ -11,7 +10,6 @@ use direct::Direct;
 use grid::Grid;
 use macroquad::prelude::*;
 use num_complex::{Complex, ComplexFloat};
-use quadtree::{NodeID, QuadtreeNode, Square};
 use std::{collections::HashMap, f32::consts::PI};
 
 const G: f32 = 0.05;
@@ -21,7 +19,7 @@ const INITIAL_ABS_SPEED: f32 = 0.05;
 const ZOOM_STEP: f32 = 1.2;
 const FONT_SIZE: u16 = 50;
 
-pub const BORDER_THICKNESS: f32 = 1.0;
+pub const BORDER_THICKNESS: f32 = 2.0;
 pub const BORDER_COLOR: Color = GREEN;
 
 fn window_conf() -> Conf {
@@ -46,17 +44,15 @@ async fn main() {
 
     let mut bodies = HashMap::with_capacity(BODIES_N);
 
-    let eccentricity = (1.0 - (screen_height() / screen_width()).powi(2)).sqrt();
-
     let center = Complex::new(screen_width() / 2.0, screen_height() / 2.0);
 
     let mut total_speed = Complex::ZERO;
     for _ in 0..BODIES_N {
-        let angle = rng.random_range(0.0..2.0 * PI);
-        let radius = (screen_height() / 2.0) / (1.0 - (eccentricity * angle.cos()).powi(2)).sqrt();
-        let distance_from_center = radius * (rng.random_range(0.0..1.0).sqrt());
+        let radius = center.re() * rng.random_range(0.0..1.0).sqrt();
+        let fi = 2.0 * PI * rng.random_range(0.0..1.0);
+
         let body = Body {
-            pos: center + Complex::from_polar(distance_from_center, angle),
+            pos: center + Complex::new(radius * fi.cos(), center.im() / center.re() * radius * fi.sin()),
             speed: Complex::from_polar(INITIAL_ABS_SPEED, rng.random_range(0.0..2.0 * PI)),
             mass: INITIAL_MASS,
         };
@@ -82,10 +78,7 @@ async fn main() {
             zoom *= ZOOM_STEP;
         }
 
-        camera.zoom = vec2(
-            2.0 / screen_width() * zoom,
-            2.0 / screen_height() * zoom,
-        );
+        camera.zoom = vec2(2.0 / screen_width() * zoom, 2.0 / screen_height() * zoom);
 
         set_camera(&camera);
 

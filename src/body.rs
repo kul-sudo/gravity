@@ -1,4 +1,4 @@
-use crate::{G, quadtree::Rectangle};
+use crate::{G, barnes_hut::Rectangle};
 use macroquad::prelude::*;
 use num_complex::{Complex, ComplexFloat};
 use std::{

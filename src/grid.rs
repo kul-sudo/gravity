@@ -34,7 +34,7 @@ impl Cell {
 pub struct Grid;
 
 impl Grid {
-    pub const DRAW: bool = false;
+    pub const DRAW: bool = true;
     pub const COLOR: Color = BLUE;
 
     pub fn handle(bodies: &mut HashMap<BodyID, Body>, zoom: f32) -> Duration {
@@ -82,8 +82,8 @@ impl Grid {
                     let lhs_body = bodies.get_mut(lhs_body_id).unwrap();
                     for (m, row) in cells.iter().enumerate() {
                         for (n, cell) in row.iter().enumerate() {
-                            if (i.saturating_sub(1)..=(i + 1).min(rows_n)).contains(&m)
-                                && (j.saturating_sub(1)..=(j + 1).min(columns_n)).contains(&n)
+                            if (i.saturating_sub(1)..=(i + 1).min(rows_n - 1)).contains(&m)
+                                && (j.saturating_sub(1)..=(j + 1).min(columns_n - 1)).contains(&n)
                             {
                                 for rhs_body_id in &cell.bodies {
                                     if lhs_body_id != rhs_body_id {
