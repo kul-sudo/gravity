@@ -10,7 +10,11 @@ use direct::Direct;
 use grid::Grid;
 use macroquad::prelude::*;
 use num_complex::{Complex, ComplexFloat};
-use std::{collections::HashMap, f32::consts::PI};
+use std::{
+    collections::HashMap,
+    f32::consts::PI,
+    sync::{LazyLock, RwLock},
+};
 
 const G: f32 = 0.05;
 const INITIAL_MASS: f32 = 1.0;
@@ -18,6 +22,8 @@ const INITIAL_ABS_SPEED: f32 = 0.05;
 
 const ZOOM_STEP: f32 = 1.2;
 const FONT_SIZE: u16 = 50;
+
+static DT: LazyLock<RwLock<f32>> = LazyLock::new(|| RwLock::new(1.0));
 
 pub const BORDER_THICKNESS: f32 = 2.0;
 pub const BORDER_COLOR: Color = GREEN;
@@ -49,12 +55,17 @@ async fn main() {
     let mut total_speed = Complex::ZERO;
     for _ in 0..BODIES_N {
         let radius = center.re() * rng.random_range(0.0..1.0).sqrt();
-        let fi = 2.0 * PI * rng.random_range(0.0..1.0);
+        let fi = rng.random_range(0.0..2.0 * PI);
 
         let body = Body {
-            pos: center + Complex::new(radius * fi.cos(), center.im() / center.re() * radius * fi.sin()),
+            pos: center
+                + Complex::new(
+                    radius * fi.cos(),
+                    center.im() / center.re() * radius * fi.sin(),
+                ),
             speed: Complex::from_polar(INITIAL_ABS_SPEED, rng.random_range(0.0..2.0 * PI)),
             mass: INITIAL_MASS,
+            lived_in_one_step: 0.0,
         };
 
         bodies.insert(BodyID::now(), body);
@@ -82,19 +93,18 @@ async fn main() {
 
         set_camera(&camera);
 
-        // Direct
-        Body::update_bodies(&mut bodies);
-
-        let duration = Direct::handle(&mut bodies).as_millis().to_string();
-        let measured = measure_text(&duration, None, FONT_SIZE, 1.0);
-
-        draw_text(
-            &format!("Direct: {} ms", duration),
-            0.0,
-            measured.height,
-            FONT_SIZE as f32,
-            Direct::COLOR,
-        );
+        //// Direct
+        //Body::update_bodies(&mut bodies);
+        //
+        //let duration = Direct::handle(&mut bodies).as_millis().to_string();
+        //
+        //draw_text(
+        //    &format!("Direct: {} ms", duration),
+        //    0.0,
+        //    measured.height,
+        //    FONT_SIZE as f32,
+        //    Direct::COLOR,
+        //);
 
         // Barnes-Hut
         Body::update_bodies(&mut barnes_hut_bodies);
@@ -102,6 +112,7 @@ async fn main() {
         let duration = BarnesHut::handle(&mut barnes_hut_bodies, zoom)
             .as_millis()
             .to_string();
+        let measured = measure_text(&duration, None, FONT_SIZE, 1.0);
 
         draw_text(
             &format!("Barnes-Hut: {} ms", duration),
@@ -110,7 +121,7 @@ async fn main() {
             FONT_SIZE as f32,
             BarnesHut::COLOR,
         );
-
+        //
         // Grid
         Body::update_bodies(&mut grid_bodies);
 
@@ -127,7 +138,7 @@ async fn main() {
         for (hashmap, color) in [
             (&grid_bodies, Grid::COLOR),
             (&barnes_hut_bodies, BarnesHut::COLOR),
-            (&bodies, Direct::COLOR),
+            //(&bodies, Direct::COLOR),
         ] {
             for body in hashmap.values() {
                 draw_circle(body.pos.re(), body.pos.im(), body.get_radius(), color);

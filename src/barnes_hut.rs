@@ -1,11 +1,11 @@
 use macroquad::prelude::*;
 use num_complex::{Complex, ComplexFloat};
+use std::array::from_fn;
 use std::{
     collections::{HashMap, HashSet},
     sync::{LazyLock, RwLock},
     time::{Duration, Instant},
 };
-use std::array::from_fn;
 
 use crate::{
     BORDER_COLOR, BORDER_THICKNESS,
@@ -196,7 +196,7 @@ impl QuadtreeNode {
 pub struct BarnesHut;
 
 impl BarnesHut {
-    pub const DRAW: bool = true;
+    pub const DRAW: bool = false;
     pub const COLOR: Color = RED;
 
     pub fn handle(bodies: &mut HashMap<BodyID, Body>, zoom: f32) -> Duration {

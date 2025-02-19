@@ -1,4 +1,4 @@
-use crate::{G, barnes_hut::Rectangle};
+use crate::{DT, G, barnes_hut::Rectangle};
 use macroquad::prelude::*;
 use num_complex::{Complex, ComplexFloat};
 use std::{
@@ -6,7 +6,7 @@ use std::{
     time::Instant,
 };
 
-pub const BODIES_N: usize = 1200;
+pub const BODIES_N: usize = 2400;
 
 pub type BodyID = Instant;
 
@@ -15,6 +15,7 @@ pub struct Body {
     pub pos: Complex<f32>,
     pub speed: Complex<f32>,
     pub mass: f32,
+    pub lived_in_one_step: f32,
 }
 
 pub fn get_rectangle(bodies: &mut HashMap<BodyID, Body>) -> Rectangle {
@@ -45,33 +46,87 @@ impl Body {
         self.mass.powf(1.0 / 3.0)
     }
 
-    fn get_closest(&self, id: BodyID, bodies: &HashMap<BodyID, Body>) -> Vec<BodyID> {
-        let mut closest = vec![];
-        let radius = self.get_radius();
+    pub fn update_bodies(bodies: &mut HashMap<BodyID, Body>) {
+        let dt = *DT.read().unwrap();
 
-        for (body_id, body) in bodies {
-            if *body_id != id && (body.pos - self.pos).abs() <= radius + body.get_radius() {
-                closest.push(*body_id)
+        for body in bodies.values_mut() {
+            body.lived_in_one_step = dt;
+        }
+
+        let mut all_collisions: HashMap<BodyID, Vec<BodyID>> = HashMap::new();
+
+        let bodies_keys = bodies.keys().cloned().collect::<Vec<_>>();
+
+        for lhs_body_id in &bodies_keys {
+            let lhs_body_radius = bodies.get_mut(lhs_body_id).unwrap().get_radius();
+            for rhs_body_id in &bodies_keys {
+                if lhs_body_id == rhs_body_id {
+                    continue;
+                }
+
+                let [Some(lhs_body), Some(rhs_body)] =
+                    bodies.get_disjoint_mut([&lhs_body_id, &rhs_body_id])
+                else {
+                    panic!()
+                };
+
+                let dpos = lhs_body.pos - rhs_body.pos;
+                let dspeed = lhs_body.speed - rhs_body.speed;
+
+                let r = lhs_body_radius + rhs_body.get_radius();
+
+                let a = dspeed.abs().powi(2);
+                let b = (dpos.re() * dspeed.re() + dpos.im() * dspeed.im()) * 2.0;
+                let c = dpos.abs().powi(2) - r.powi(2);
+                let d = b.powi(2) - 4.0 * a * c;
+
+                if a == 0.0 && c <= 0.0 {
+                    all_collisions
+                        .entry(*lhs_body_id)
+                        .and_modify(|value| value.push(*rhs_body_id))
+                        .or_insert(vec![*rhs_body_id]);
+                    all_collisions
+                        .entry(*rhs_body_id)
+                        .and_modify(|value| value.push(*lhs_body_id))
+                        .or_insert(vec![*lhs_body_id]);
+
+                    lhs_body.lived_in_one_step = 0.0;
+                    rhs_body.lived_in_one_step = 0.0;
+                } else if a != 0.0 && d >= 0.0 {
+                    let d_sqrt = d.sqrt();
+                    let t_min = -(b + d_sqrt) / (a * 2.0);
+
+                    if d_sqrt >= b && t_min <= dt {
+                        all_collisions
+                            .entry(*lhs_body_id)
+                            .and_modify(|value| value.push(*rhs_body_id))
+                            .or_insert(vec![*rhs_body_id]);
+                        all_collisions
+                            .entry(*rhs_body_id)
+                            .and_modify(|value| value.push(*lhs_body_id))
+                            .or_insert(vec![*lhs_body_id]);
+
+                        let t = t_min * (t_min >= 0.0) as usize as f32;
+                        lhs_body.lived_in_one_step = lhs_body.lived_in_one_step.min(t);
+                        rhs_body.lived_in_one_step = rhs_body.lived_in_one_step.min(t);
+                    }
+                }
             }
         }
 
-        closest
-    }
-
-    pub fn update_bodies(bodies: &mut HashMap<BodyID, Body>) {
         for body in bodies.values_mut() {
-            body.pos += body.speed
+            body.pos += body.lived_in_one_step * body.speed;
         }
 
         let mut visited = HashSet::new();
         let mut add = vec![];
 
-        for (body_id, body) in bodies.iter() {
-            if visited.contains(body_id) {
+        for (body_id, collisions) in all_collisions {
+            if visited.contains(&body_id) {
                 continue;
             }
 
-            let chain = body.collect_chain(*body_id, bodies, &mut visited);
+            let chain = Self::collect_chain(body_id, &collisions, &mut visited);
 
             let new_mass = chain
                 .iter()
@@ -98,6 +153,7 @@ impl Body {
                 pos: new_pos,
                 speed: new_speed,
                 mass: new_mass,
+                lived_in_one_step: 0.0,
             });
         }
 
@@ -111,26 +167,25 @@ impl Body {
     }
 
     fn collect_chain(
-        &self,
         id: BodyID,
-        bodies: &HashMap<BodyID, Body>,
+        collisions: &Vec<BodyID>,
         visited: &mut HashSet<BodyID>,
     ) -> Vec<BodyID> {
         let mut chain = vec![id];
         visited.insert(id);
 
-        let closest = self.get_closest(id, bodies);
-
-        for neighbor_id in closest {
-            if visited.contains(&neighbor_id) {
+        for child_id in collisions {
+            if visited.contains(&child_id) {
                 continue;
             }
 
-            let neighbor = bodies.get(&neighbor_id).unwrap();
-            let subchain = neighbor.collect_chain(neighbor_id, bodies, visited);
+            chain.push(*child_id);
 
-            for chain_member_id in subchain {
-                chain.push(chain_member_id);
+            for grandchild_id in Self::collect_chain(*child_id, collisions, visited) {
+                if visited.contains(&grandchild_id) {
+                    continue;
+                }
+                chain.push(grandchild_id);
             }
         }
 
@@ -138,7 +193,8 @@ impl Body {
     }
 
     pub fn adjust_speed(&mut self, pos: Complex<f32>, mass: f32) {
+        let dt = *DT.read().unwrap();
         let r = pos - self.pos;
-        self.speed += G * mass * r / r.abs().powi(3);
+        self.speed += dt * G * mass * r / r.abs().powi(3);
     }
 }
