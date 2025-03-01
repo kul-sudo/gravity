@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-macroquad = "0.4.13"
+macroquad = "=0.4.8"
 num-complex = "0.4.6"
 rand = "0.9.0"
 

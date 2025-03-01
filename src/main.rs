@@ -32,6 +32,10 @@ fn window_conf() -> Conf {
     Conf {
         window_title: "gravity".to_owned(),
         fullscreen: true,
+        platform: miniquad::conf::Platform {
+            linux_backend: miniquad::conf::LinuxBackend::WaylandOnly,
+            ..Default::default()
+        },
         ..Default::default()
     }
 }
@@ -40,8 +44,10 @@ fn window_conf() -> Conf {
 async fn main() {
     let mut rng = StdRng::from_os_rng();
 
-    set_fullscreen(true);
-    next_frame().await;
+    for _ in 0..8 {
+        set_fullscreen(true);
+        next_frame().await;
+    }
 
     let mut zoom = 1.0;
 
@@ -52,20 +58,22 @@ async fn main() {
 
     let center = Complex::new(screen_width() / 2.0, screen_height() / 2.0);
 
+    let initial_radius = Body::get_radius(INITIAL_MASS);
+
     let mut total_speed = Complex::ZERO;
     for _ in 0..BODIES_N {
         let radius = center.re() * rng.random_range(0.0..1.0).sqrt();
-        let fi = rng.random_range(0.0..2.0 * PI);
+        let angle = rng.random_range(0.0..2.0 * PI);
 
         let body = Body {
             pos: center
                 + Complex::new(
-                    radius * fi.cos(),
-                    center.im() / center.re() * radius * fi.sin(),
+                    radius * angle.cos(),
+                    center.im() / center.re() * radius * angle.sin(),
                 ),
             speed: Complex::from_polar(INITIAL_ABS_SPEED, rng.random_range(0.0..2.0 * PI)),
             mass: INITIAL_MASS,
-            lived_in_one_step: 0.0,
+            radius: initial_radius,
         };
 
         bodies.insert(BodyID::now(), body);
@@ -93,42 +101,44 @@ async fn main() {
 
         set_camera(&camera);
 
-        //// Direct
-        //Body::update_bodies(&mut bodies);
-        //
-        //let duration = Direct::handle(&mut bodies).as_millis().to_string();
-        //
-        //draw_text(
-        //    &format!("Direct: {} ms", duration),
-        //    0.0,
-        //    measured.height,
-        //    FONT_SIZE as f32,
-        //    Direct::COLOR,
-        //);
+        let dt = *DT.read().unwrap();
 
-        // Barnes-Hut
-        Body::update_bodies(&mut barnes_hut_bodies);
+        // Direct
+        Body::update_bodies(dt, &mut bodies);
 
-        let duration = BarnesHut::handle(&mut barnes_hut_bodies, zoom)
-            .as_millis()
-            .to_string();
+        let duration = Direct::handle(&mut bodies).as_micros().to_string();
         let measured = measure_text(&duration, None, FONT_SIZE, 1.0);
 
         draw_text(
-            &format!("Barnes-Hut: {} ms", duration),
+            &format!("Direct: {} us", duration),
+            0.0,
+            measured.height,
+            FONT_SIZE as f32,
+            Direct::COLOR,
+        );
+
+        // Barnes-Hut
+        Body::update_bodies(dt, &mut barnes_hut_bodies);
+
+        let duration = BarnesHut::handle(&mut barnes_hut_bodies, zoom)
+            .as_micros()
+            .to_string();
+
+        draw_text(
+            &format!("Barnes-Hut: {} us", duration),
             0.0,
             measured.height * 2.0,
             FONT_SIZE as f32,
             BarnesHut::COLOR,
         );
-        //
-        // Grid
-        Body::update_bodies(&mut grid_bodies);
 
-        let duration = Grid::handle(&mut grid_bodies, zoom).as_millis().to_string();
+        // Grid
+        Body::update_bodies(dt, &mut grid_bodies);
+
+        let duration = Grid::handle(&mut grid_bodies, zoom).as_micros().to_string();
 
         draw_text(
-            &format!("Grid: {} ms", duration),
+            &format!("Grid: {} us", duration),
             0.0,
             measured.height * 3.0,
             FONT_SIZE as f32,
@@ -138,13 +148,13 @@ async fn main() {
         for (hashmap, color) in [
             (&grid_bodies, Grid::COLOR),
             (&barnes_hut_bodies, BarnesHut::COLOR),
-            //(&bodies, Direct::COLOR),
+            (&bodies, Direct::COLOR),
         ] {
             for body in hashmap.values() {
-                draw_circle(body.pos.re(), body.pos.im(), body.get_radius(), color);
+                draw_circle(body.pos.re(), body.pos.im(), body.radius, color);
             }
         }
 
-        next_frame().await
+        next_frame().await;
     }
 }
