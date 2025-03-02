@@ -10,11 +10,7 @@ use direct::Direct;
 use grid::Grid;
 use macroquad::prelude::*;
 use num_complex::{Complex, ComplexFloat};
-use std::{
-    collections::HashMap,
-    f32::consts::PI,
-    sync::{LazyLock, RwLock},
-};
+use std::{collections::HashMap, f32::consts::PI};
 
 const G: f32 = 0.05;
 const INITIAL_MASS: f32 = 1.0;
@@ -23,7 +19,7 @@ const INITIAL_ABS_SPEED: f32 = 0.05;
 const ZOOM_STEP: f32 = 1.2;
 const FONT_SIZE: u16 = 50;
 
-static DT: LazyLock<RwLock<f32>> = LazyLock::new(|| RwLock::new(1.0));
+const DT: f32 = 1.0;
 
 pub const BORDER_THICKNESS: f32 = 2.0;
 pub const BORDER_COLOR: Color = GREEN;
@@ -50,6 +46,7 @@ async fn main() {
     }
 
     let mut zoom = 1.0;
+    let mut always_use_direct = false;
 
     let mut camera =
         Camera2D::from_display_rect(Rect::new(0.0, 0.0, screen_width(), screen_height()));
@@ -60,7 +57,6 @@ async fn main() {
 
     let initial_radius = Body::get_radius(INITIAL_MASS);
 
-    let mut total_speed = Complex::ZERO;
     for _ in 0..BODIES_N {
         let radius = center.re() * rng.random_range(0.0..1.0).sqrt();
         let angle = rng.random_range(0.0..2.0 * PI);
@@ -77,17 +73,11 @@ async fn main() {
         };
 
         bodies.insert(BodyID::now(), body);
-
-        total_speed += body.speed;
     }
 
-    let delta_speed = -total_speed / BODIES_N as f32;
+    Body::adjust_momentum(&mut bodies);
 
-    for body in bodies.values_mut() {
-        body.speed += delta_speed
-    }
-
-    Body::update_bodies(*DT.read().unwrap(), &mut bodies);
+    Body::update_bodies(DT, &mut bodies);
 
     let mut barnes_hut_bodies = bodies.clone();
     let mut grid_bodies = bodies.clone();
@@ -97,16 +87,17 @@ async fn main() {
             zoom /= ZOOM_STEP;
         } else if is_key_released(KeyCode::Equal) {
             zoom *= ZOOM_STEP;
+        } else if is_key_released(KeyCode::Space) {
+            always_use_direct = true;
         }
 
         camera.zoom = vec2(2.0 / screen_width() * zoom, 2.0 / screen_height() * zoom);
 
         set_camera(&camera);
 
-        let dt = *DT.read().unwrap();
-
         // Direct
-        Body::update_bodies(dt, &mut bodies);
+        Body::update_bodies(DT, &mut bodies);
+        Body::adjust_momentum(&mut bodies);
 
         let duration_direct = Direct::handle(&mut bodies).as_micros() as f32 / bodies.len() as f32;
         let measured = measure_text(&duration_direct.to_string(), None, FONT_SIZE, 1.0);
@@ -120,10 +111,15 @@ async fn main() {
         );
 
         // Barnes-Hut
-        Body::update_bodies(dt, &mut barnes_hut_bodies);
+        Body::update_bodies(DT, &mut barnes_hut_bodies);
+        Body::adjust_momentum(&mut barnes_hut_bodies);
 
-        let duration_barnes_hut = BarnesHut::handle(&mut barnes_hut_bodies, zoom).as_micros()
-            as f32
+        let duration_barnes_hut = if always_use_direct {
+            Direct::handle(&mut barnes_hut_bodies)
+        } else {
+            BarnesHut::handle(&mut barnes_hut_bodies, zoom)
+        }
+        .as_micros() as f32
             / barnes_hut_bodies.len() as f32;
 
         draw_text(
@@ -135,10 +131,16 @@ async fn main() {
         );
 
         // Grid
-        Body::update_bodies(dt, &mut grid_bodies);
+        Body::update_bodies(DT, &mut grid_bodies);
+        Body::adjust_momentum(&mut grid_bodies);
 
-        let duration_grid =
-            Grid::handle(&mut grid_bodies, zoom).as_micros() as f32 / grid_bodies.len() as f32;
+        let duration_grid = if always_use_direct {
+            Direct::handle(&mut grid_bodies)
+        } else {
+            Grid::handle(&mut grid_bodies, zoom)
+        }
+        .as_micros() as f32
+            / grid_bodies.len() as f32;
 
         draw_text(
             &format!("Grid: {:.1}", duration_grid),
@@ -162,6 +164,16 @@ async fn main() {
             for body in hashmap.values() {
                 draw_circle(body.pos.re(), body.pos.im(), body.radius, color);
             }
+        }
+
+        if always_use_direct {
+            draw_text(
+                "Direct only.",
+                0.0,
+                measured.height * 4.0,
+                FONT_SIZE as f32,
+                WHITE,
+            );
         }
 
         next_frame().await;

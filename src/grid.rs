@@ -34,7 +34,7 @@ impl Cell {
 pub struct Grid;
 
 impl Grid {
-    pub const DRAW: bool = false;
+    pub const DRAW: bool = true;
     pub const COLOR: Color = BLUE;
 
     pub fn handle(bodies: &mut HashMap<BodyID, Body>, zoom: f32) -> Duration {
@@ -56,7 +56,7 @@ impl Grid {
         let mut cells = vec![
             vec![
                 Cell {
-                    bodies: HashSet::with_capacity(bodies.len() / (rows_n * columns_n)),
+                    bodies: HashSet::with_capacity((TAU * (bodies.len() as f32).sqrt()) as usize),
                     total_mass: 0.0,
                     pos: Complex::ZERO,
                 };

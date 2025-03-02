@@ -202,7 +202,7 @@ pub enum ThetaAdjustment {
 pub struct BarnesHut;
 
 impl BarnesHut {
-    pub const DRAW: bool = true;
+    pub const DRAW: bool = false;
     pub const COLOR: Color = RED;
 
     pub fn adjust_theta(adjustment: ThetaAdjustment) {

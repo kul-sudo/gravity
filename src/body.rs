@@ -1,9 +1,10 @@
-use crate::{DT, G, barnes_hut::Rectangle};
+use crate::{DT, G, INITIAL_MASS, barnes_hut::Rectangle};
 use macroquad::prelude::*;
 use num_complex::{Complex, ComplexFloat};
 use std::{collections::HashMap, time::Instant};
 
-pub const BODIES_N: usize = 1500;
+//pub const BODIES_N: usize = 1500;
+pub const BODIES_N: usize = 500;
 
 pub type BodyID = Instant;
 
@@ -39,6 +40,17 @@ pub fn get_rectangle(bodies: &mut HashMap<BodyID, Body>) -> Rectangle {
 impl Body {
     pub fn get_radius(mass: f32) -> f32 {
         mass.powf(1.0 / 3.0)
+    }
+
+    pub fn adjust_momentum(bodies: &mut HashMap<BodyID, Body>) {
+        let total_momentum = bodies
+            .values()
+            .map(|body| body.mass * body.speed)
+            .sum::<Complex<f32>>();
+        let delta = -total_momentum / (BODIES_N as f32 * INITIAL_MASS);
+        for body in bodies.values_mut() {
+            body.speed += delta;
+        }
     }
 
     pub fn connect(pair: [BodyID; 2], bodies: &mut HashMap<BodyID, Body>) {
@@ -169,8 +181,7 @@ impl Body {
     }
 
     pub fn adjust_speed(&mut self, pos: Complex<f32>, mass: f32) {
-        let dt = *DT.read().unwrap();
         let r = pos - self.pos;
-        self.speed += dt * G * mass * r / r.abs().powi(3);
+        self.speed += DT * G * mass * r / r.abs().powi(3);
     }
 }
