@@ -3,7 +3,7 @@ use macroquad::prelude::*;
 use num_complex::{Complex, ComplexFloat};
 use std::{collections::HashMap, time::Instant};
 
-pub const BODIES_N: usize = 200;
+pub const BODIES_N: usize = 1500;
 
 pub type BodyID = Instant;
 
@@ -44,12 +44,12 @@ impl Body {
     pub fn connect(pair: [BodyID; 2], bodies: &mut HashMap<BodyID, Body>) {
         let mass = pair
             .iter()
-            .map(|body_id| bodies.get(&body_id).unwrap().mass)
+            .map(|body_id| bodies.get(body_id).unwrap().mass)
             .sum::<f32>();
         let pos = pair
             .iter()
             .map(|body_id| {
-                let body = bodies.get(&body_id).unwrap();
+                let body = bodies.get(body_id).unwrap();
                 body.mass * body.pos
             })
             .sum::<Complex<f32>>()
@@ -57,7 +57,7 @@ impl Body {
         let speed = pair
             .iter()
             .map(|body_id| {
-                let body = bodies.get(&body_id).unwrap();
+                let body = bodies.get(body_id).unwrap();
                 body.mass * body.speed
             })
             .sum::<Complex<f32>>()
@@ -142,10 +142,7 @@ impl Body {
             }
         }
 
-        match earliest_collision_pair {
-            Some(pair) => Some((earliest_collision_time, pair)),
-            None => None,
-        }
+        earliest_collision_pair.map(|pair| (earliest_collision_time, pair))
     }
 
     pub fn update_bodies(lambda: f32, bodies: &mut HashMap<BodyID, Body>) {

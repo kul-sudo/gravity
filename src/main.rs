@@ -4,7 +4,7 @@ mod direct;
 mod grid;
 
 use ::rand::{Rng, SeedableRng, rngs::StdRng};
-use barnes_hut::BarnesHut;
+use barnes_hut::{BarnesHut, ThetaAdjustment};
 use body::{BODIES_N, Body, BodyID};
 use direct::Direct;
 use grid::Grid;
@@ -84,8 +84,10 @@ async fn main() {
     let delta_speed = -total_speed / BODIES_N as f32;
 
     for body in bodies.values_mut() {
-        body.speed += delta_speed;
+        body.speed += delta_speed
     }
+
+    Body::update_bodies(*DT.read().unwrap(), &mut bodies);
 
     let mut barnes_hut_bodies = bodies.clone();
     let mut grid_bodies = bodies.clone();
@@ -106,11 +108,11 @@ async fn main() {
         // Direct
         Body::update_bodies(dt, &mut bodies);
 
-        let duration = Direct::handle(&mut bodies).as_micros().to_string();
-        let measured = measure_text(&duration, None, FONT_SIZE, 1.0);
+        let duration_direct = Direct::handle(&mut bodies).as_micros() as f32 / bodies.len() as f32;
+        let measured = measure_text(&duration_direct.to_string(), None, FONT_SIZE, 1.0);
 
         draw_text(
-            &format!("Direct: {} us", duration),
+            &format!("Direct: {:.1}", duration_direct),
             0.0,
             measured.height,
             FONT_SIZE as f32,
@@ -120,12 +122,12 @@ async fn main() {
         // Barnes-Hut
         Body::update_bodies(dt, &mut barnes_hut_bodies);
 
-        let duration = BarnesHut::handle(&mut barnes_hut_bodies, zoom)
-            .as_micros()
-            .to_string();
+        let duration_barnes_hut = BarnesHut::handle(&mut barnes_hut_bodies, zoom).as_micros()
+            as f32
+            / barnes_hut_bodies.len() as f32;
 
         draw_text(
-            &format!("Barnes-Hut: {} us", duration),
+            &format!("Barnes-Hut: {:.1}", duration_barnes_hut),
             0.0,
             measured.height * 2.0,
             FONT_SIZE as f32,
@@ -135,15 +137,22 @@ async fn main() {
         // Grid
         Body::update_bodies(dt, &mut grid_bodies);
 
-        let duration = Grid::handle(&mut grid_bodies, zoom).as_micros().to_string();
+        let duration_grid =
+            Grid::handle(&mut grid_bodies, zoom).as_micros() as f32 / grid_bodies.len() as f32;
 
         draw_text(
-            &format!("Grid: {} us", duration),
+            &format!("Grid: {:.1}", duration_grid),
             0.0,
             measured.height * 3.0,
             FONT_SIZE as f32,
             Grid::COLOR,
         );
+
+        BarnesHut::adjust_theta(if duration_barnes_hut <= duration_grid {
+            ThetaAdjustment::Decrease
+        } else {
+            ThetaAdjustment::Increase
+        });
 
         for (hashmap, color) in [
             (&grid_bodies, Grid::COLOR),

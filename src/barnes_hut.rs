@@ -14,7 +14,8 @@ use crate::{
 
 pub type NodeID = Instant;
 
-static THETA: LazyLock<RwLock<f32>> = LazyLock::new(|| RwLock::new(7.0));
+static THETA: LazyLock<RwLock<f32>> = LazyLock::new(|| RwLock::new(0.0));
+const DELTA_THETA: f32 = 0.01;
 
 #[derive(Clone)]
 pub struct Square {
@@ -193,11 +194,22 @@ impl QuadtreeNode {
     }
 }
 
+pub enum ThetaAdjustment {
+    Increase = 1,
+    Decrease = -1,
+}
+
 pub struct BarnesHut;
 
 impl BarnesHut {
-    pub const DRAW: bool = false;
+    pub const DRAW: bool = true;
     pub const COLOR: Color = RED;
+
+    pub fn adjust_theta(adjustment: ThetaAdjustment) {
+        let mut write = THETA.write().unwrap();
+        *write += DELTA_THETA * adjustment as isize as f32;
+        *write = write.max(0.0);
+    }
 
     pub fn handle(bodies: &mut HashMap<BodyID, Body>, zoom: f32) -> Duration {
         let start = Instant::now();
