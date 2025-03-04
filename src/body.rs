@@ -4,7 +4,8 @@ use num_complex::{Complex, ComplexFloat};
 use std::{collections::HashMap, time::Instant};
 
 //pub const BODIES_N: usize = 1500;
-pub const BODIES_N: usize = 500;
+//pub const BODIES_N: usize = 500;
+pub const BODIES_N: usize = 1500;
 
 pub type BodyID = Instant;
 
@@ -90,27 +91,32 @@ impl Body {
     }
 
     pub fn connect_all(bodies: &mut HashMap<BodyID, Body>) {
-        let mut deepest_connection_depth = f32::MIN;
-        let mut deepest_connection_pair: Option<[BodyID; 2]> = None;
+        loop {
+            let mut deepest_connection_depth = f32::MIN;
+            let mut deepest_connection_pair: Option<[BodyID; 2]> = None;
 
-        for (lhs_body_id, lhs_body) in bodies.iter() {
-            for (rhs_body_id, rhs_body) in bodies.iter() {
-                if lhs_body_id == rhs_body_id {
-                    continue;
-                }
+            for (lhs_body_id, lhs_body) in bodies.iter() {
+                for (rhs_body_id, rhs_body) in bodies.iter() {
+                    if lhs_body_id == rhs_body_id {
+                        continue;
+                    }
 
-                let depth = lhs_body.radius + rhs_body.radius - (lhs_body.pos - rhs_body.pos).abs();
+                    let depth =
+                        lhs_body.radius + rhs_body.radius - (lhs_body.pos - rhs_body.pos).abs();
 
-                if depth >= 0.0 && depth > deepest_connection_depth {
-                    deepest_connection_depth = depth;
-                    deepest_connection_pair = Some([*lhs_body_id, *rhs_body_id]);
+                    if depth >= 0.0 && depth > deepest_connection_depth {
+                        deepest_connection_depth = depth;
+                        deepest_connection_pair = Some([*lhs_body_id, *rhs_body_id]);
+                    }
                 }
             }
-        }
 
-        if let Some(pair) = deepest_connection_pair {
-            Self::connect(pair, bodies);
-            Self::connect_all(bodies);
+            match deepest_connection_pair {
+                Some(pair) => {
+                    Self::connect(pair, bodies);
+                }
+                None => break,
+            }
         }
     }
 

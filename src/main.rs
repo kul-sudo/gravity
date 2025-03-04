@@ -4,7 +4,7 @@ mod direct;
 mod grid;
 
 use ::rand::{Rng, SeedableRng, rngs::StdRng};
-use barnes_hut::{BarnesHut, ThetaAdjustment};
+use barnes_hut::{BarnesHut, THETA, ThetaAdjustment};
 use body::{BODIES_N, Body, BodyID};
 use direct::Direct;
 use grid::Grid;
@@ -29,7 +29,7 @@ fn window_conf() -> Conf {
         window_title: "gravity".to_owned(),
         fullscreen: true,
         platform: miniquad::conf::Platform {
-            linux_backend: miniquad::conf::LinuxBackend::WaylandOnly,
+            linux_backend: miniquad::conf::LinuxBackend::WaylandWithX11Fallback,
             ..Default::default()
         },
         ..Default::default()
@@ -99,11 +99,15 @@ async fn main() {
         Body::update_bodies(DT, &mut bodies);
         Body::adjust_momentum(&mut bodies);
 
-        let duration_direct = Direct::handle(&mut bodies).as_micros() as f32 / bodies.len() as f32;
-        let measured = measure_text(&duration_direct.to_string(), None, FONT_SIZE, 1.0);
+        let duration_direct = Direct::handle(&mut bodies);
+        let duration_direct_micros = duration_direct.as_micros();
+        let measured = measure_text(&duration_direct_micros.to_string(), None, FONT_SIZE, 1.0);
 
         draw_text(
-            &format!("Direct: {:.1}", duration_direct),
+            &format!(
+                "Direct: {:.1}",
+                duration_direct_micros as f32 / bodies.len() as f32
+            ),
             0.0,
             measured.height,
             FONT_SIZE as f32,
@@ -118,12 +122,13 @@ async fn main() {
             Direct::handle(&mut barnes_hut_bodies)
         } else {
             BarnesHut::handle(&mut barnes_hut_bodies, zoom)
-        }
-        .as_micros() as f32
-            / barnes_hut_bodies.len() as f32;
+        };
 
         draw_text(
-            &format!("Barnes-Hut: {:.1}", duration_barnes_hut),
+            &format!("Barnes-Hut: {:.1}", duration_barnes_hut
+                .as_micros() as f32
+                / barnes_hut_bodies.len() as f32
+            ),
             0.0,
             measured.height * 2.0,
             FONT_SIZE as f32,
@@ -138,16 +143,33 @@ async fn main() {
             Direct::handle(&mut grid_bodies)
         } else {
             Grid::handle(&mut grid_bodies, zoom)
-        }
-        .as_micros() as f32
-            / grid_bodies.len() as f32;
+        };
 
         draw_text(
-            &format!("Grid: {:.1}", duration_grid),
+            &format!(
+                "Grid: {:.1}",
+                duration_grid.as_micros() as f32 / grid_bodies.len() as f32
+            ),
             0.0,
             measured.height * 3.0,
             FONT_SIZE as f32,
             Grid::COLOR,
+        );
+
+        draw_text(
+            &format!("Theta: {}", *THETA.read().unwrap()),
+            0.0,
+            measured.height * 4.0,
+            FONT_SIZE as f32,
+            WHITE,
+        );
+
+        draw_text(
+            &format!("{}", duration_barnes_hut > duration_grid),
+            0.0,
+            measured.height * 5.0,
+            FONT_SIZE as f32,
+            WHITE,
         );
 
         BarnesHut::adjust_theta(if duration_barnes_hut <= duration_grid {
@@ -170,7 +192,7 @@ async fn main() {
             draw_text(
                 "Direct only.",
                 0.0,
-                measured.height * 4.0,
+                measured.height * 6.0,
                 FONT_SIZE as f32,
                 WHITE,
             );
