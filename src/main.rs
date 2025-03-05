@@ -95,19 +95,15 @@ async fn main() {
 
         set_camera(&camera);
 
-        // Direct
+// Direct
         Body::update_bodies(DT, &mut bodies);
         Body::adjust_momentum(&mut bodies);
 
-        let duration_direct = Direct::handle(&mut bodies);
-        let duration_direct_micros = duration_direct.as_micros();
-        let measured = measure_text(&duration_direct_micros.to_string(), None, FONT_SIZE, 1.0);
+        let duration_direct = Direct::handle(&mut bodies).as_nanos() as f32 / bodies.len() as f32;
+        let measured = measure_text(&duration_direct.to_string(), None, FONT_SIZE, 1.0);
 
         draw_text(
-            &format!(
-                "Direct: {:.1}",
-                duration_direct_micros as f32 / bodies.len() as f32
-            ),
+            &format!("Direct: {:.1}", duration_direct),
             0.0,
             measured.height,
             FONT_SIZE as f32,
@@ -122,13 +118,12 @@ async fn main() {
             Direct::handle(&mut barnes_hut_bodies)
         } else {
             BarnesHut::handle(&mut barnes_hut_bodies, zoom)
-        };
+        }
+        .as_nanos() as f32
+            / barnes_hut_bodies.len() as f32;
 
         draw_text(
-            &format!("Barnes-Hut: {:.1}", duration_barnes_hut
-                .as_micros() as f32
-                / barnes_hut_bodies.len() as f32
-            ),
+            &format!("Barnes-Hut: {:.1}", duration_barnes_hut),
             0.0,
             measured.height * 2.0,
             FONT_SIZE as f32,
@@ -143,13 +138,12 @@ async fn main() {
             Direct::handle(&mut grid_bodies)
         } else {
             Grid::handle(&mut grid_bodies, zoom)
-        };
+        }
+        .as_nanos() as f32
+            / grid_bodies.len() as f32;
 
         draw_text(
-            &format!(
-                "Grid: {:.1}",
-                duration_grid.as_micros() as f32 / grid_bodies.len() as f32
-            ),
+            &format!("Grid: {:.1}", duration_grid),
             0.0,
             measured.height * 3.0,
             FONT_SIZE as f32,
