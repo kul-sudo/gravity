@@ -16,6 +16,7 @@ pub type NodeID = usize;
 
 pub static THETA: LazyLock<RwLock<f32>> = LazyLock::new(|| RwLock::new(0.0));
 const DELTA_THETA: f32 = 0.1;
+const MAX_THETA: f32 = 5.0;
 
 #[derive(Clone, Debug)]
 pub struct Square {
@@ -193,7 +194,7 @@ impl QuadtreeNode {
                 }
             }
         }
-       
+
         for (_, child) in children.iter_mut().flatten() {
             if child.total_mass != 0.0 {
                 child.pos /= child.total_mass;
@@ -225,7 +226,7 @@ impl BarnesHut {
     pub fn adjust_theta(adjustment: ThetaAdjustment) {
         let mut write = THETA.write().unwrap();
         *write += DELTA_THETA * adjustment as isize as f32;
-        *write = write.max(0.0);
+        *write = write.clamp(0.0, MAX_THETA);
     }
 
     pub fn handle(bodies: &mut HashMap<BodyID, Body>, zoom: f32) -> Duration {
@@ -254,7 +255,7 @@ impl BarnesHut {
         }
 
         let square = Square { top_left, size };
-        
+
         let mut quadtree_nodes: Vec<QuadtreeNode> = vec![QuadtreeNode {
             children: None,
             bodies: QuadtreeNodeBodies::All,

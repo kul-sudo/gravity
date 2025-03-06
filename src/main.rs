@@ -12,6 +12,8 @@ use macroquad::prelude::*;
 use num_complex::{Complex, ComplexFloat};
 use std::{collections::HashMap, f32::consts::PI};
 
+const MAX_AVERAGE_LENGTH: usize = 100;
+
 const G: f32 = 0.05;
 const INITIAL_MASS: f32 = 1.0;
 const INITIAL_ABS_SPEED: f32 = 0.05;
@@ -82,6 +84,10 @@ async fn main() {
     let mut barnes_hut_bodies = bodies.clone();
     let mut grid_bodies = bodies.clone();
 
+    let mut direct_durations = Vec::with_capacity(MAX_AVERAGE_LENGTH);
+    let mut barnes_hut_durations = direct_durations.clone();
+    let mut grid_durations = direct_durations.clone();
+
     loop {
         if is_key_released(KeyCode::Minus) {
             zoom /= ZOOM_STEP;
@@ -100,10 +106,16 @@ async fn main() {
         Body::adjust_momentum(&mut bodies);
 
         let duration_direct = Direct::handle(&mut bodies).as_nanos() as f32 / bodies.len() as f32;
-        let measured = measure_text(&duration_direct.to_string(), None, FONT_SIZE, 1.0);
+        if direct_durations.len() == MAX_AVERAGE_LENGTH {
+            direct_durations.clear();
+        }
+        direct_durations.push(duration_direct);
+
+        let average = direct_durations.iter().sum::<f32>() / direct_durations.len() as f32;
+        let measured = measure_text(&average.to_string(), None, FONT_SIZE, 1.0);
 
         draw_text(
-            &format!("Direct: {:.1}", duration_direct),
+            &format!("Direct: {}", average as usize),
             0.0,
             measured.height,
             FONT_SIZE as f32,
@@ -122,8 +134,15 @@ async fn main() {
         .as_nanos() as f32
             / barnes_hut_bodies.len() as f32;
 
+        if barnes_hut_durations.len() == MAX_AVERAGE_LENGTH {
+            barnes_hut_durations.clear();
+        }
+        barnes_hut_durations.push(duration_barnes_hut);
+
+        let average = barnes_hut_durations.iter().sum::<f32>() / barnes_hut_durations.len() as f32;
+
         draw_text(
-            &format!("Barnes-Hut: {:.1}", duration_barnes_hut),
+            &format!("Barnes-Hut: {}", average as usize),
             0.0,
             measured.height * 2.0,
             FONT_SIZE as f32,
@@ -142,28 +161,19 @@ async fn main() {
         .as_nanos() as f32
             / grid_bodies.len() as f32;
 
+        if grid_durations.len() == MAX_AVERAGE_LENGTH {
+            grid_durations.clear();
+        }
+        grid_durations.push(duration_grid);
+
+        let average = grid_durations.iter().sum::<f32>() / grid_durations.len() as f32;
+
         draw_text(
-            &format!("Grid: {:.1}", duration_grid),
+            &format!("Grid: {}", average as usize),
             0.0,
             measured.height * 3.0,
             FONT_SIZE as f32,
             Grid::COLOR,
-        );
-
-        draw_text(
-            &format!("Theta: {}", *THETA.read().unwrap()),
-            0.0,
-            measured.height * 4.0,
-            FONT_SIZE as f32,
-            WHITE,
-        );
-
-        draw_text(
-            &format!("{}", duration_barnes_hut > duration_grid),
-            0.0,
-            measured.height * 5.0,
-            FONT_SIZE as f32,
-            WHITE,
         );
 
         BarnesHut::adjust_theta(if duration_barnes_hut <= duration_grid {
@@ -180,16 +190,6 @@ async fn main() {
             for body in hashmap.values() {
                 draw_circle(body.pos.re(), body.pos.im(), body.radius, color);
             }
-        }
-
-        if always_use_direct {
-            draw_text(
-                "Direct only.",
-                0.0,
-                measured.height * 6.0,
-                FONT_SIZE as f32,
-                WHITE,
-            );
         }
 
         next_frame().await;
