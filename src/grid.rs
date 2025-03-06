@@ -34,7 +34,7 @@ impl Cell {
 pub struct Grid;
 
 impl Grid {
-    pub const DRAW: bool = true;
+    pub const DRAW: bool = false;
     pub const COLOR: Color = BLUE;
 
     pub fn handle(bodies: &mut HashMap<BodyID, Body>, zoom: f32) -> Duration {

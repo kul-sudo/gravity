@@ -3,9 +3,8 @@ use macroquad::prelude::*;
 use num_complex::{Complex, ComplexFloat};
 use std::{collections::HashMap, time::Instant};
 
-//pub const BODIES_N: usize = 1500;
-//pub const BODIES_N: usize = 500;
 pub const BODIES_N: usize = 1500;
+//pub const BODIES_N: usize = 500;
 
 pub type BodyID = Instant;
 

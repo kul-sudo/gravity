@@ -95,7 +95,7 @@ async fn main() {
 
         set_camera(&camera);
 
-// Direct
+        // Direct
         Body::update_bodies(DT, &mut bodies);
         Body::adjust_momentum(&mut bodies);
 

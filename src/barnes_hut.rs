@@ -12,12 +12,12 @@ use crate::{
     body::{Body, BodyID, get_rectangle},
 };
 
-pub type NodeID = Instant;
+pub type NodeID = usize;
 
 pub static THETA: LazyLock<RwLock<f32>> = LazyLock::new(|| RwLock::new(0.0));
-const DELTA_THETA: f32 = 0.01;
+const DELTA_THETA: f32 = 0.1;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Square {
     pub top_left: Complex<f32>,
     pub size: f32,
@@ -29,13 +29,13 @@ pub struct Rectangle {
     pub bottom_right: Complex<f32>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum QuadtreeNodeBodies {
     All,
     Bodies(HashSet<BodyID>),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct QuadtreeNode {
     pub children: Option<[[NodeID; 2]; 2]>,
     pub bodies: QuadtreeNodeBodies,
@@ -45,8 +45,8 @@ pub struct QuadtreeNode {
 }
 
 impl QuadtreeNode {
-    pub fn draw(id: NodeID, quadtree_nodes: &mut HashMap<NodeID, Self>, zoom: f32) {
-        let current_node = quadtree_nodes.get(&id).unwrap();
+    pub fn draw(id: NodeID, quadtree_nodes: &mut Vec<Self>, zoom: f32) {
+        let current_node = &quadtree_nodes[id];
 
         let border = BORDER_THICKNESS / zoom;
 
@@ -79,9 +79,9 @@ impl QuadtreeNode {
         id: NodeID,
         body_id: BodyID,
         bodies: &mut HashMap<BodyID, Body>,
-        quadtree_nodes: &mut HashMap<NodeID, Self>,
+        quadtree_nodes: &mut Vec<Self>,
     ) {
-        let current_node = quadtree_nodes.get(&id).unwrap();
+        let current_node = &quadtree_nodes[id];
         let bodies_len = bodies.len();
         let body = bodies.get_mut(&body_id).unwrap();
 
@@ -116,12 +116,8 @@ impl QuadtreeNode {
         }
     }
 
-    pub fn split(
-        id: NodeID,
-        bodies: &HashMap<BodyID, Body>,
-        quadtree_nodes: &mut HashMap<NodeID, Self>,
-    ) {
-        let current_node = quadtree_nodes.get(&id).unwrap();
+    pub fn split(id: NodeID, bodies: &HashMap<BodyID, Body>, quadtree_nodes: &mut Vec<Self>) {
+        let current_node = &quadtree_nodes[id];
 
         if match &current_node.bodies {
             QuadtreeNodeBodies::All => bodies.len(),
@@ -135,8 +131,8 @@ impl QuadtreeNode {
 
         let mut children: [[(NodeID, QuadtreeNode); 2]; 2] = from_fn(|i| {
             from_fn(|j| {
-                (
-                    NodeID::now(),
+                let child = (
+                    quadtree_nodes.len() + j + 2 * i,
                     Self {
                         children: None,
                         bodies: QuadtreeNodeBodies::Bodies(HashSet::new()),
@@ -148,9 +144,11 @@ impl QuadtreeNode {
                         total_mass: 0.0,
                         pos: Complex::ZERO,
                     },
-                )
+                );
+                child
             })
         });
+
         match &current_node.bodies {
             QuadtreeNodeBodies::All => {
                 for body_id in bodies.keys() {
@@ -175,7 +173,7 @@ impl QuadtreeNode {
             }
             QuadtreeNodeBodies::Bodies(node_bodies) => {
                 for body_id in node_bodies {
-                    let body = bodies.get(body_id).unwrap();
+                    let body = bodies.get(&body_id).unwrap();
 
                     let i = ((body.pos.im() - current_node.square.top_left.im()) / child_size)
                         .floor() as usize;
@@ -195,17 +193,20 @@ impl QuadtreeNode {
                 }
             }
         }
-
-        for (child_id, child) in children.iter_mut().flatten() {
+       
+        for (_, child) in children.iter_mut().flatten() {
             if child.total_mass != 0.0 {
                 child.pos /= child.total_mass;
             }
 
-            quadtree_nodes.insert(*child_id, child.clone());
+            quadtree_nodes.push(child.clone());
+        }
+
+        for (child_id, _) in children.iter().flatten() {
             Self::split(*child_id, bodies, quadtree_nodes);
         }
 
-        let current_node_mut = quadtree_nodes.get_mut(&id).unwrap();
+        let current_node_mut = &mut quadtree_nodes[id];
         current_node_mut.children = Some(from_fn(|i| from_fn(|j| children[i][j].0)));
     }
 }
@@ -230,8 +231,6 @@ impl BarnesHut {
     pub fn handle(bodies: &mut HashMap<BodyID, Body>, zoom: f32) -> Duration {
         let start = Instant::now();
 
-        let mut quadtree_nodes: HashMap<NodeID, QuadtreeNode> = HashMap::new();
-
         let rectangle = get_rectangle(bodies);
 
         let width = rectangle.bottom_right.re() - rectangle.top_left.re();
@@ -255,30 +254,26 @@ impl BarnesHut {
         }
 
         let square = Square { top_left, size };
+        
+        let mut quadtree_nodes: Vec<QuadtreeNode> = vec![QuadtreeNode {
+            children: None,
+            bodies: QuadtreeNodeBodies::All,
+            square,
+            total_mass: 0.0,
+            pos: Complex::ZERO,
+        }];
+        let root_id = 0;
 
-        let bodies_keys = bodies.keys().cloned().collect::<HashSet<_>>();
-
-        let root_id = NodeID::now();
-        quadtree_nodes.insert(
-            root_id,
-            QuadtreeNode {
-                children: None,
-                bodies: QuadtreeNodeBodies::All,
-                square,
-                total_mass: 0.0,
-                pos: Complex::ZERO,
-            },
-        );
         QuadtreeNode::split(root_id, bodies, &mut quadtree_nodes);
 
-        for body_id in bodies_keys {
+        for body_id in bodies.keys().cloned().collect::<HashSet<_>>() {
             QuadtreeNode::adjust_speed(root_id, body_id, bodies, &mut quadtree_nodes);
         }
 
         let end = start.elapsed();
 
         if Self::DRAW {
-            let root = quadtree_nodes.get(&root_id).unwrap();
+            let root = &quadtree_nodes[root_id];
             let border = BORDER_THICKNESS / zoom;
 
             draw_rectangle_lines(
