@@ -176,6 +176,7 @@ async fn main() {
             }
         }
 
+        let rect = zoom.get_rect();
         let mut measured = None;
         for (index, (name, color, average)) in [
             ("Direct", Direct::COLOR, direct_average),
@@ -194,14 +195,13 @@ async fn main() {
                 ));
             }
 
-            let rect = zoom.get_rect();
             draw_text_ex(
                 &format!("{}: {}", name, *average as usize),
                 rect.top_left.re(),
                 rect.top_left.im() + measured.unwrap().height * (index + 1) as f32 / zoom.zoom,
                 TextParams {
                     font: None,
-                    font_size: FONT_SIZE as u16,
+                    font_size: FONT_SIZE,
                     font_scale: 1.0 / zoom.zoom,
                     font_scale_aspect: 1.0,
                     rotation: 0.0,
@@ -209,6 +209,22 @@ async fn main() {
                 },
             );
         }
+
+        let text = &format!("Always use direct: {}", always_use_direct);
+        let measured = measure_text(text, None, FONT_SIZE, 1.0);
+        draw_text_ex(
+            text,
+            rect.bottom_right.re() - measured.width / zoom.zoom,
+            rect.top_left.im() + measured.height / zoom.zoom,
+            TextParams {
+                font: None,
+                font_size: FONT_SIZE,
+                font_scale: 1.0 / zoom.zoom,
+                font_scale_aspect: 1.0,
+                rotation: 0.0,
+                color: WHITE,
+            },
+        );
 
         next_frame().await;
     }

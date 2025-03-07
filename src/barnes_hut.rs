@@ -149,49 +149,29 @@ impl QuadtreeNode {
             })
         });
 
-        match &current_node.bodies {
-            QuadtreeNodeBodies::All => {
-                for body_id in bodies.keys() {
-                    let body = bodies.get(body_id).unwrap();
-
-                    let i = ((body.pos.im() - current_node.square.top_left.im()) / child_size)
-                        .floor() as usize;
-                    let j = ((body.pos.re() - current_node.square.top_left.re()) / child_size)
-                        .floor() as usize;
-
-                    let child = &mut children[i][j];
-
-                    if let QuadtreeNodeBodies::Bodies(node_bodies) = &mut child.1.bodies {
-                        node_bodies.insert(*body_id);
-                    } else {
-                        unreachable!()
-                    }
-
-                    child.1.total_mass += body.mass;
-                    child.1.pos += body.pos * body.mass;
-                }
-            }
+        for body_id in match &current_node.bodies {
+            QuadtreeNodeBodies::All => Box::new(bodies.keys()) as Box<dyn Iterator<Item = &BodyID>>,
             QuadtreeNodeBodies::Bodies(node_bodies) => {
-                for body_id in node_bodies {
-                    let body = bodies.get(body_id).unwrap();
-
-                    let i = ((body.pos.im() - current_node.square.top_left.im()) / child_size)
-                        .floor() as usize;
-                    let j = ((body.pos.re() - current_node.square.top_left.re()) / child_size)
-                        .floor() as usize;
-
-                    let child = &mut children[i][j];
-
-                    if let QuadtreeNodeBodies::Bodies(node_bodies) = &mut child.1.bodies {
-                        node_bodies.insert(*body_id);
-                    } else {
-                        unreachable!()
-                    }
-
-                    child.1.total_mass += body.mass;
-                    child.1.pos += body.pos * body.mass;
-                }
+                Box::new(node_bodies.iter()) as Box<dyn Iterator<Item = &BodyID>>
             }
+        } {
+            let body = bodies.get(&body_id).unwrap();
+
+            let i =
+                ((body.pos.im() - current_node.square.top_left.im()) / child_size).floor() as usize;
+            let j =
+                ((body.pos.re() - current_node.square.top_left.re()) / child_size).floor() as usize;
+
+            let child = &mut children[i][j];
+
+            if let QuadtreeNodeBodies::Bodies(node_bodies) = &mut child.1.bodies {
+                node_bodies.insert(*body_id);
+            } else {
+                unreachable!()
+            }
+
+            child.1.total_mass += body.mass;
+            child.1.pos += body.pos * body.mass;
         }
 
         for (_, child) in children.iter_mut().flatten() {
