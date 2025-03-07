@@ -155,7 +155,7 @@ impl QuadtreeNode {
                 Box::new(node_bodies.iter()) as Box<dyn Iterator<Item = &BodyID>>
             }
         } {
-            let body = bodies.get(&body_id).unwrap();
+            let body = bodies.get(body_id).unwrap();
 
             let i = ((body.pos.im() - current_node.square.top_left.im()) / child_size) as usize;
             let j = ((body.pos.re() - current_node.square.top_left.re()) / child_size) as usize;

@@ -1,7 +1,12 @@
 use crate::barnes_hut::Rectangle;
 use macroquad::prelude::*;
 use num_complex::{Complex, ComplexFloat};
+use std::ops::Range;
 
+pub const ZOOM_STEP: f32 = 1.2;
+pub const ZOOM_RANGE: Range<f32> = 0.3..5.0;
+
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub struct Zoom {
     pub zoom: f32,
 }

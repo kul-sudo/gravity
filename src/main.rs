@@ -13,6 +13,7 @@ use macroquad::prelude::*;
 use num_complex::{Complex, ComplexFloat};
 use std::{collections::HashMap, f32::consts::PI};
 use zoom::Zoom;
+use zoom::{ZOOM_RANGE, ZOOM_STEP};
 
 const MAX_AVERAGE_LENGTH: usize = 100;
 
@@ -20,7 +21,6 @@ const G: f32 = 0.05;
 const INITIAL_MASS: f32 = 1.0;
 const INITIAL_ABS_SPEED: f32 = 0.05;
 
-const ZOOM_STEP: f32 = 1.2;
 const FONT_SIZE: u16 = 50;
 
 const DT: f32 = 1.0;
@@ -50,10 +50,6 @@ async fn main() {
     }
 
     let mut zoom = Zoom { zoom: 1.0 };
-    let mut always_use_direct = false;
-
-    //let font = Font::default();
-    //font.set_filter(FilterMode::Nearest);
 
     let mut camera =
         Camera2D::from_display_rect(Rect::new(0.0, 0.0, screen_width(), screen_height()));
@@ -61,7 +57,6 @@ async fn main() {
     let mut bodies = HashMap::with_capacity(BODIES_N);
 
     let center = Complex::new(screen_width() / 2.0, screen_height() / 2.0);
-
     let initial_radius = Body::get_radius(INITIAL_MASS);
 
     for _ in 0..BODIES_N {
@@ -83,7 +78,6 @@ async fn main() {
     }
 
     Body::adjust_momentum(&mut bodies);
-
     Body::update_bodies(DT, &mut bodies);
 
     let mut barnes_hut_bodies = bodies.clone();
@@ -92,24 +86,44 @@ async fn main() {
     let mut direct_durations = Vec::with_capacity(MAX_AVERAGE_LENGTH);
     let mut barnes_hut_durations = direct_durations.clone();
     let mut grid_durations = direct_durations.clone();
+    
+    let mut always_use_direct = false;
 
     loop {
+        let mut update = false;
+        let mut new_zoom = None;
+
         if is_key_down(KeyCode::Minus) {
-            zoom.zoom /= ZOOM_STEP;
+            new_zoom = Some(Zoom {
+                zoom: zoom.zoom / ZOOM_STEP,
+            });
+            update = true;
         } else if is_key_down(KeyCode::Equal) {
-            zoom.zoom *= ZOOM_STEP;
+            new_zoom = Some(Zoom {
+                zoom: zoom.zoom * ZOOM_STEP,
+            });
+            update = true;
         } else if is_key_pressed(KeyCode::Key0) {
             zoom.zoom = 1.0;
+            update = true;
         } else if is_key_pressed(KeyCode::Space) {
             always_use_direct = !always_use_direct;
         }
 
-        camera.zoom = vec2(
-            2.0 / screen_width() * zoom.zoom,
-            2.0 / screen_height() * zoom.zoom,
-        );
+        if update {
+            if let Some(new_zoom) = new_zoom {
+                if ZOOM_RANGE.contains(&new_zoom.zoom) {
+                    zoom = new_zoom
+                }
+            }
 
-        set_camera(&camera);
+            camera.zoom = vec2(
+                2.0 / screen_width() * zoom.zoom,
+                2.0 / screen_height() * zoom.zoom,
+            );
+
+            set_camera(&camera);
+        }
 
         // Direct
         Body::update_bodies(DT, &mut bodies);
