@@ -157,21 +157,19 @@ impl QuadtreeNode {
         } {
             let body = bodies.get(&body_id).unwrap();
 
-            let i =
-                ((body.pos.im() - current_node.square.top_left.im()) / child_size).floor() as usize;
-            let j =
-                ((body.pos.re() - current_node.square.top_left.re()) / child_size).floor() as usize;
+            let i = ((body.pos.im() - current_node.square.top_left.im()) / child_size) as usize;
+            let j = ((body.pos.re() - current_node.square.top_left.re()) / child_size) as usize;
 
-            let child = &mut children[i][j];
+            let (_, child_node) = &mut children[i][j];
 
-            if let QuadtreeNodeBodies::Bodies(node_bodies) = &mut child.1.bodies {
+            if let QuadtreeNodeBodies::Bodies(node_bodies) = &mut child_node.bodies {
                 node_bodies.insert(*body_id);
             } else {
                 unreachable!()
             }
 
-            child.1.total_mass += body.mass;
-            child.1.pos += body.pos * body.mass;
+            child_node.total_mass += body.mass;
+            child_node.pos += body.pos * body.mass;
         }
 
         for (_, child) in children.iter_mut().flatten() {

@@ -94,12 +94,14 @@ async fn main() {
     let mut grid_durations = direct_durations.clone();
 
     loop {
-        if is_key_released(KeyCode::Minus) {
+        if is_key_down(KeyCode::Minus) {
             zoom.zoom /= ZOOM_STEP;
-        } else if is_key_released(KeyCode::Equal) {
+        } else if is_key_down(KeyCode::Equal) {
             zoom.zoom *= ZOOM_STEP;
-        } else if is_key_released(KeyCode::Space) {
-            always_use_direct = true;
+        } else if is_key_pressed(KeyCode::Key0) {
+            zoom.zoom = 1.0;
+        } else if is_key_pressed(KeyCode::Space) {
+            always_use_direct = !always_use_direct;
         }
 
         camera.zoom = vec2(
