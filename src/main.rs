@@ -2,12 +2,14 @@ mod barnes_hut;
 mod body;
 mod direct;
 mod grid;
+mod zoom;
 
 use ::rand::{Rng, SeedableRng, rngs::StdRng};
-use barnes_hut::{BarnesHut, THETA, ThetaAdjustment};
+use barnes_hut::{BarnesHut, ThetaAdjustment};
 use body::{BODIES_N, Body, BodyID};
 use direct::Direct;
 use grid::Grid;
+use zoom::Zoom;
 use macroquad::prelude::*;
 use num_complex::{Complex, ComplexFloat};
 use std::{collections::HashMap, f32::consts::PI};
@@ -47,7 +49,7 @@ async fn main() {
         next_frame().await;
     }
 
-    let mut zoom = 1.0;
+    let mut zoom = Zoom { zoom: 0.0 };
     let mut always_use_direct = false;
 
     let mut camera =
@@ -90,14 +92,14 @@ async fn main() {
 
     loop {
         if is_key_released(KeyCode::Minus) {
-            zoom /= ZOOM_STEP;
+            zoom.zoom /= ZOOM_STEP;
         } else if is_key_released(KeyCode::Equal) {
-            zoom *= ZOOM_STEP;
+            zoom.zoom *= ZOOM_STEP;
         } else if is_key_released(KeyCode::Space) {
             always_use_direct = true;
         }
 
-        camera.zoom = vec2(2.0 / screen_width() * zoom, 2.0 / screen_height() * zoom);
+        camera.zoom = vec2(2.0 / screen_width() * zoom.zoom, 2.0 / screen_height() * zoom.zoom);
 
         set_camera(&camera);
 
@@ -129,7 +131,7 @@ async fn main() {
         let duration_barnes_hut = if always_use_direct {
             Direct::handle(&mut barnes_hut_bodies)
         } else {
-            BarnesHut::handle(&mut barnes_hut_bodies, zoom)
+            BarnesHut::handle(&mut barnes_hut_bodies, &zoom)
         }
         .as_nanos() as f32
             / barnes_hut_bodies.len() as f32;
@@ -156,7 +158,7 @@ async fn main() {
         let duration_grid = if always_use_direct {
             Direct::handle(&mut grid_bodies)
         } else {
-            Grid::handle(&mut grid_bodies, zoom)
+            Grid::handle(&mut grid_bodies, &zoom)
         }
         .as_nanos() as f32
             / grid_bodies.len() as f32;

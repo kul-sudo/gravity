@@ -1,4 +1,4 @@
-use crate::{BORDER_COLOR, BORDER_THICKNESS, Body, BodyID, body::get_rectangle};
+use crate::{BORDER_COLOR, BORDER_THICKNESS, Body, BodyID, body::get_rectangle, Zoom};
 use macroquad::prelude::*;
 use num_complex::{Complex, ComplexFloat};
 use std::{
@@ -37,7 +37,7 @@ impl Grid {
     pub const DRAW: bool = false;
     pub const COLOR: Color = BLUE;
 
-    pub fn handle(bodies: &mut HashMap<BodyID, Body>, zoom: f32) -> Duration {
+    pub fn handle(bodies: &mut HashMap<BodyID, Body>, zoom: &Zoom) -> Duration {
         let start = Instant::now();
 
         let rectangle = get_rectangle(bodies);
@@ -104,7 +104,7 @@ impl Grid {
         let end = start.elapsed();
 
         if Self::DRAW {
-            let border = BORDER_THICKNESS / zoom;
+            let border = BORDER_THICKNESS / zoom.zoom;
 
             for i in 0..=rows_n {
                 draw_line(

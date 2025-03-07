@@ -10,13 +10,14 @@ use std::{
 use crate::{
     BORDER_COLOR, BORDER_THICKNESS,
     body::{Body, BodyID, get_rectangle},
+    Zoom
 };
 
 pub type NodeID = usize;
 
 pub static THETA: LazyLock<RwLock<f32>> = LazyLock::new(|| RwLock::new(0.0));
 const DELTA_THETA: f32 = 0.1;
-const MAX_THETA: f32 = 5.0;
+const MAX_THETA: f32 = 4.0;
 
 #[derive(Clone, Debug)]
 pub struct Square {
@@ -46,10 +47,10 @@ pub struct QuadtreeNode {
 }
 
 impl QuadtreeNode {
-    pub fn draw(id: NodeID, quadtree_nodes: &mut Vec<Self>, zoom: f32) {
+    pub fn draw(id: NodeID, quadtree_nodes: &mut Vec<Self>, zoom: &Zoom) {
         let current_node = &quadtree_nodes[id];
 
-        let border = BORDER_THICKNESS / zoom;
+        let border = BORDER_THICKNESS / zoom.zoom;
 
         if let Some(children) = current_node.children {
             draw_line(
@@ -229,7 +230,7 @@ impl BarnesHut {
         *write = write.clamp(0.0, MAX_THETA);
     }
 
-    pub fn handle(bodies: &mut HashMap<BodyID, Body>, zoom: f32) -> Duration {
+    pub fn handle(bodies: &mut HashMap<BodyID, Body>, zoom: &Zoom) -> Duration {
         let start = Instant::now();
 
         let rectangle = get_rectangle(bodies);
@@ -275,7 +276,7 @@ impl BarnesHut {
 
         if Self::DRAW {
             let root = &quadtree_nodes[root_id];
-            let border = BORDER_THICKNESS / zoom;
+            let border = BORDER_THICKNESS / zoom.zoom;
 
             draw_rectangle_lines(
                 root.square.top_left.re(),
