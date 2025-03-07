@@ -8,9 +8,8 @@ use std::{
 };
 
 use crate::{
-    BORDER_COLOR, BORDER_THICKNESS,
+    BORDER_COLOR, BORDER_THICKNESS, Zoom,
     body::{Body, BodyID, get_rectangle},
-    Zoom
 };
 
 pub type NodeID = usize;
@@ -133,7 +132,7 @@ impl QuadtreeNode {
 
         let mut children: [[(NodeID, QuadtreeNode); 2]; 2] = from_fn(|i| {
             from_fn(|j| {
-                let child = (
+                (
                     quadtree_nodes.len() + j + 2 * i,
                     Self {
                         children: None,
@@ -146,8 +145,7 @@ impl QuadtreeNode {
                         total_mass: 0.0,
                         pos: Complex::ZERO,
                     },
-                );
-                child
+                )
             })
         });
 
@@ -175,7 +173,7 @@ impl QuadtreeNode {
             }
             QuadtreeNodeBodies::Bodies(node_bodies) => {
                 for body_id in node_bodies {
-                    let body = bodies.get(&body_id).unwrap();
+                    let body = bodies.get(body_id).unwrap();
 
                     let i = ((body.pos.im() - current_node.square.top_left.im()) / child_size)
                         .floor() as usize;

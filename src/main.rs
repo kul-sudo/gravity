@@ -9,10 +9,10 @@ use barnes_hut::{BarnesHut, ThetaAdjustment};
 use body::{BODIES_N, Body, BodyID};
 use direct::Direct;
 use grid::Grid;
-use zoom::Zoom;
 use macroquad::prelude::*;
 use num_complex::{Complex, ComplexFloat};
 use std::{collections::HashMap, f32::consts::PI};
+use zoom::Zoom;
 
 const MAX_AVERAGE_LENGTH: usize = 100;
 
@@ -49,8 +49,11 @@ async fn main() {
         next_frame().await;
     }
 
-    let mut zoom = Zoom { zoom: 0.0 };
+    let mut zoom = Zoom { zoom: 1.0 };
     let mut always_use_direct = false;
+
+    //let font = Font::default();
+    //font.set_filter(FilterMode::Nearest);
 
     let mut camera =
         Camera2D::from_display_rect(Rect::new(0.0, 0.0, screen_width(), screen_height()));
@@ -99,7 +102,10 @@ async fn main() {
             always_use_direct = true;
         }
 
-        camera.zoom = vec2(2.0 / screen_width() * zoom.zoom, 2.0 / screen_height() * zoom.zoom);
+        camera.zoom = vec2(
+            2.0 / screen_width() * zoom.zoom,
+            2.0 / screen_height() * zoom.zoom,
+        );
 
         set_camera(&camera);
 
@@ -113,16 +119,7 @@ async fn main() {
         }
         direct_durations.push(duration_direct);
 
-        let average = direct_durations.iter().sum::<f32>() / direct_durations.len() as f32;
-        let measured = measure_text(&average.to_string(), None, FONT_SIZE, 1.0);
-
-        draw_text(
-            &format!("Direct: {}", average as usize),
-            0.0,
-            measured.height,
-            FONT_SIZE as f32,
-            Direct::COLOR,
-        );
+        let direct_average = direct_durations.iter().sum::<f32>() / direct_durations.len() as f32;
 
         // Barnes-Hut
         Body::update_bodies(DT, &mut barnes_hut_bodies);
@@ -141,15 +138,8 @@ async fn main() {
         }
         barnes_hut_durations.push(duration_barnes_hut);
 
-        let average = barnes_hut_durations.iter().sum::<f32>() / barnes_hut_durations.len() as f32;
-
-        draw_text(
-            &format!("Barnes-Hut: {}", average as usize),
-            0.0,
-            measured.height * 2.0,
-            FONT_SIZE as f32,
-            BarnesHut::COLOR,
-        );
+        let barnes_hut_average =
+            barnes_hut_durations.iter().sum::<f32>() / barnes_hut_durations.len() as f32;
 
         // Grid
         Body::update_bodies(DT, &mut grid_bodies);
@@ -168,15 +158,7 @@ async fn main() {
         }
         grid_durations.push(duration_grid);
 
-        let average = grid_durations.iter().sum::<f32>() / grid_durations.len() as f32;
-
-        draw_text(
-            &format!("Grid: {}", average as usize),
-            0.0,
-            measured.height * 3.0,
-            FONT_SIZE as f32,
-            Grid::COLOR,
-        );
+        let grid_average = grid_durations.iter().sum::<f32>() / grid_durations.len() as f32;
 
         BarnesHut::adjust_theta(if duration_barnes_hut <= duration_grid {
             ThetaAdjustment::Decrease
@@ -192,6 +174,40 @@ async fn main() {
             for body in hashmap.values() {
                 draw_circle(body.pos.re(), body.pos.im(), body.radius, color);
             }
+        }
+
+        let mut measured = None;
+        for (index, (name, color, average)) in [
+            ("Direct", Direct::COLOR, direct_average),
+            ("Barnes-Hut", BarnesHut::COLOR, barnes_hut_average),
+            ("Grid", Grid::COLOR, grid_average),
+        ]
+        .iter()
+        .enumerate()
+        {
+            if measured.is_none() {
+                measured = Some(measure_text(
+                    &direct_average.to_string(),
+                    None,
+                    FONT_SIZE,
+                    1.0,
+                ));
+            }
+
+            let rect = zoom.get_rect();
+            draw_text_ex(
+                &format!("{}: {}", name, *average as usize),
+                rect.top_left.re(),
+                rect.top_left.im() + measured.unwrap().height * (index + 1) as f32 / zoom.zoom,
+                TextParams {
+                    font: None,
+                    font_size: FONT_SIZE as u16,
+                    font_scale: 1.0 / zoom.zoom,
+                    font_scale_aspect: 1.0,
+                    rotation: 0.0,
+                    color: *color,
+                },
+            );
         }
 
         next_frame().await;

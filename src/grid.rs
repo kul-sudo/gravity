@@ -1,4 +1,4 @@
-use crate::{BORDER_COLOR, BORDER_THICKNESS, Body, BodyID, body::get_rectangle, Zoom};
+use crate::{BORDER_COLOR, BORDER_THICKNESS, Body, BodyID, Zoom, body::get_rectangle};
 use macroquad::prelude::*;
 use num_complex::{Complex, ComplexFloat};
 use std::{
