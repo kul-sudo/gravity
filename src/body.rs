@@ -94,7 +94,7 @@ impl Body {
 
     pub fn connect_all(bodies: &mut HashMap<BodyID, Body>) {
         loop {
-            let mut deepest_connection_depth = f64::MIN;
+            let mut deepest_connection_depth = f64::NEG_INFINITY;
             let mut deepest_connection_pair: Option<[BodyID; 2]> = None;
 
             for (lhs_body_id, lhs_body) in bodies.iter() {
@@ -126,7 +126,7 @@ impl Body {
         time_lower_bound: f64,
         bodies: &mut HashMap<BodyID, Body>,
     ) -> Option<(f64, [BodyID; 2])> {
-        let mut earliest_collision_time = f64::MAX;
+        let mut earliest_collision_time = f64::INFINITY;
         let mut earliest_collision_pair: Option<[BodyID; 2]> = None;
 
         for (lhs_body_id, lhs_body) in bodies.iter() {
