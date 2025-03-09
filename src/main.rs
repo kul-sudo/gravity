@@ -14,11 +14,13 @@ use num_complex::{Complex, ComplexFloat};
 use std::{
     collections::HashMap,
     f64::consts::{PI, SQRT_2},
+    num::NonZero,
 };
-use zoom::Zoom;
-use zoom::{ZOOM_RANGE, ZOOM_STEP};
+use zoom::{
+    Zoom, {ZOOM_RANGE, ZOOM_STEP},
+};
 
-const MAX_AVERAGE_LENGTH: usize = 100;
+const MAX_AVERAGE_LENGTH: NonZero<usize> = NonZero::new(100).unwrap();
 
 const G: f64 = 0.05;
 const INITIAL_MASS: f64 = 1.0;
@@ -57,7 +59,7 @@ async fn main() {
     let mut camera =
         Camera2D::from_display_rect(Rect::new(0.0, 0.0, screen_width(), screen_height()));
 
-    let mut bodies = HashMap::with_capacity(BODIES_N);
+    let mut bodies = HashMap::with_capacity(BODIES_N.get());
 
     let center = Complex::new(screen_width() as f64 / 2.0, screen_height() as f64 / 2.0);
     let initial_body_radius = Body::get_radius(INITIAL_MASS);
@@ -67,7 +69,7 @@ async fn main() {
 
     let mut cells: Vec<Vec<Option<Complex<f64>>>> = vec![vec![None; columns_n]; rows_n];
 
-    for _ in 0..BODIES_N {
+    for _ in 0..BODIES_N.get() {
         'main: loop {
             let radius = center.re() * rng.random_range(0.0..1.0).sqrt();
             let angle = rng.random_range(0.0..2.0 * PI);
@@ -109,7 +111,7 @@ async fn main() {
     let mut barnes_hut_bodies = bodies.clone();
     let mut grid_bodies = bodies.clone();
 
-    let mut direct_durations = Vec::with_capacity(MAX_AVERAGE_LENGTH);
+    let mut direct_durations = Vec::with_capacity(MAX_AVERAGE_LENGTH.get());
     let mut barnes_hut_durations = direct_durations.clone();
     let mut grid_durations = direct_durations.clone();
 
@@ -156,7 +158,7 @@ async fn main() {
         //Body::adjust_momentum(&mut bodies);
 
         let duration_direct = Direct::handle(&mut bodies).as_nanos() as f64 / bodies.len() as f64;
-        if direct_durations.len() == MAX_AVERAGE_LENGTH {
+        if direct_durations.len() == MAX_AVERAGE_LENGTH.get() {
             direct_durations.clear();
         }
         direct_durations.push(duration_direct);
@@ -175,7 +177,7 @@ async fn main() {
         .as_nanos() as f64
             / barnes_hut_bodies.len() as f64;
 
-        if barnes_hut_durations.len() == MAX_AVERAGE_LENGTH {
+        if barnes_hut_durations.len() == MAX_AVERAGE_LENGTH.get() {
             barnes_hut_durations.clear();
         }
         barnes_hut_durations.push(duration_barnes_hut);
@@ -195,7 +197,7 @@ async fn main() {
         .as_nanos() as f64
             / grid_bodies.len() as f64;
 
-        if grid_durations.len() == MAX_AVERAGE_LENGTH {
+        if grid_durations.len() == MAX_AVERAGE_LENGTH.get() {
             grid_durations.clear();
         }
         grid_durations.push(duration_grid);

@@ -1,10 +1,13 @@
 use crate::{DT, G, INITIAL_MASS, barnes_hut::Rectangle};
 use macroquad::prelude::*;
 use num_complex::{Complex, ComplexFloat};
-use std::{collections::HashMap, time::Instant};
+use std::{collections::HashMap, num::NonZero, time::Instant};
 
-pub const BODIES_N: usize = 1500;
-//pub const BODIES_N: usize = 1500;
+pub const BODIES_N: NonZero<usize> = NonZero::new(
+    //500 // Recommended for watching the deterministic chaos
+    1500,
+)
+.unwrap();
 
 pub type BodyID = Instant;
 
@@ -47,7 +50,7 @@ impl Body {
             .values()
             .map(|body| body.mass * body.speed)
             .sum::<Complex<f64>>();
-        let delta = -total_momentum / (BODIES_N as f64 * INITIAL_MASS);
+        let delta = -total_momentum / (BODIES_N.get() as f64 * INITIAL_MASS);
         for body in bodies.values_mut() {
             body.speed += delta;
         }
