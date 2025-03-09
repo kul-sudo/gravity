@@ -13,16 +13,19 @@ pub struct Zoom {
 
 impl Zoom {
     pub fn get_rect(&self) -> Rectangle {
-        let size = Complex::new(screen_width() / self.zoom, screen_height() / self.zoom);
+        let size = Complex::new(
+            screen_width() as f64 / self.zoom as f64,
+            screen_height() as f64 / self.zoom as f64,
+        );
 
         Rectangle {
             top_left: Complex::new(
-                screen_width() / 2.0 - size.re() / 2.0,
-                screen_height() / 2.0 - size.im() / 2.0,
+                screen_width() as f64 / 2.0 - size.re() / 2.0,
+                screen_height() as f64 / 2.0 - size.im() / 2.0,
             ),
             bottom_right: Complex::new(
-                screen_width() / 2.0 + size.re() / 2.0,
-                screen_height() / 2.0 + size.im() / 2.0,
+                screen_width() as f64 / 2.0 + size.re() / 2.0,
+                screen_height() as f64 / 2.0 + size.im() / 2.0,
             ),
         }
     }

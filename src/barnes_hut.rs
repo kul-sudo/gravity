@@ -14,20 +14,20 @@ use crate::{
 
 pub type NodeID = usize;
 
-pub static THETA: LazyLock<RwLock<f32>> = LazyLock::new(|| RwLock::new(0.0));
-const DELTA_THETA: f32 = 0.1;
-const MAX_THETA: f32 = 4.0;
+pub static THETA: LazyLock<RwLock<f64>> = LazyLock::new(|| RwLock::new(0.0));
+const DELTA_THETA: f64 = 0.1;
+const MAX_THETA: f64 = 3.0;
 
 #[derive(Clone, Debug)]
 pub struct Square {
-    pub top_left: Complex<f32>,
-    pub size: f32,
+    pub top_left: Complex<f64>,
+    pub size: f64,
 }
 
 #[derive(Clone)]
 pub struct Rectangle {
-    pub top_left: Complex<f32>,
-    pub bottom_right: Complex<f32>,
+    pub top_left: Complex<f64>,
+    pub bottom_right: Complex<f64>,
 }
 
 #[derive(Clone, Debug)]
@@ -41,8 +41,8 @@ pub struct QuadtreeNode {
     pub children: Option<[[NodeID; 2]; 2]>,
     pub bodies: QuadtreeNodeBodies,
     pub square: Square,
-    pub total_mass: f32,
-    pub pos: Complex<f32>,
+    pub total_mass: f64,
+    pub pos: Complex<f64>,
 }
 
 impl QuadtreeNode {
@@ -53,19 +53,19 @@ impl QuadtreeNode {
 
         if let Some(children) = current_node.children {
             draw_line(
-                current_node.square.top_left.re(),
-                current_node.square.top_left.im() + current_node.square.size / 2.0,
-                current_node.square.top_left.re() + current_node.square.size,
-                current_node.square.top_left.im() + current_node.square.size / 2.0,
+                current_node.square.top_left.re() as f32,
+                (current_node.square.top_left.im() + current_node.square.size / 2.0) as f32,
+                (current_node.square.top_left.re() + current_node.square.size) as f32,
+                (current_node.square.top_left.im() + current_node.square.size / 2.0) as f32,
                 border,
                 BORDER_COLOR,
             );
 
             draw_line(
-                current_node.square.top_left.re() + current_node.square.size / 2.0,
-                current_node.square.top_left.im(),
-                current_node.square.top_left.re() + current_node.square.size / 2.0,
-                current_node.square.top_left.im() + current_node.square.size,
+                (current_node.square.top_left.re() + current_node.square.size / 2.0) as f32,
+                current_node.square.top_left.im() as f32,
+                (current_node.square.top_left.re() + current_node.square.size / 2.0) as f32,
+                (current_node.square.top_left.im() + current_node.square.size) as f32,
                 border,
                 BORDER_COLOR,
             );
@@ -139,7 +139,7 @@ impl QuadtreeNode {
                         bodies: QuadtreeNodeBodies::Bodies(HashSet::new()),
                         square: Square {
                             top_left: current_node.square.top_left
-                                + Complex::new(j as f32 * child_size, i as f32 * child_size),
+                                + Complex::new(j as f64 * child_size, i as f64 * child_size),
                             size: current_node.square.size / 2.0,
                         },
                         total_mass: 0.0,
@@ -202,7 +202,7 @@ impl BarnesHut {
 
     pub fn adjust_theta(adjustment: ThetaAdjustment) {
         let mut write = THETA.write().unwrap();
-        *write += DELTA_THETA * adjustment as isize as f32;
+        *write += DELTA_THETA * adjustment as isize as f64;
         *write = write.clamp(0.0, MAX_THETA);
     }
 
@@ -255,10 +255,10 @@ impl BarnesHut {
             let border = BORDER_THICKNESS / zoom.zoom;
 
             draw_rectangle_lines(
-                root.square.top_left.re(),
-                root.square.top_left.im(),
-                root.square.size,
-                root.square.size,
+                root.square.top_left.re() as f32,
+                root.square.top_left.im() as f32,
+                root.square.size as f32,
+                root.square.size as f32,
                 border,
                 BORDER_COLOR,
             );

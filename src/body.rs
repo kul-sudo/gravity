@@ -3,25 +3,25 @@ use macroquad::prelude::*;
 use num_complex::{Complex, ComplexFloat};
 use std::{collections::HashMap, time::Instant};
 
-pub const BODIES_N: usize = 500;
-//pub const BODIES_N: usize = 500;
+pub const BODIES_N: usize = 1500;
+//pub const BODIES_N: usize = 1500;
 
 pub type BodyID = Instant;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Body {
-    pub pos: Complex<f32>,
-    pub speed: Complex<f32>,
-    pub mass: f32,
-    pub radius: f32,
+    pub pos: Complex<f64>,
+    pub speed: Complex<f64>,
+    pub mass: f64,
+    pub radius: f64,
 }
 
 pub fn get_rectangle(bodies: &mut HashMap<BodyID, Body>) -> Rectangle {
-    let mut topmost = f32::INFINITY;
-    let mut bottommost = f32::NEG_INFINITY;
+    let mut topmost = f64::INFINITY;
+    let mut bottommost = f64::NEG_INFINITY;
 
-    let mut leftmost = f32::INFINITY;
-    let mut rightmost = f32::NEG_INFINITY;
+    let mut leftmost = f64::INFINITY;
+    let mut rightmost = f64::NEG_INFINITY;
 
     for body in bodies.values() {
         topmost = topmost.min(body.pos.im());
@@ -38,7 +38,7 @@ pub fn get_rectangle(bodies: &mut HashMap<BodyID, Body>) -> Rectangle {
 }
 
 impl Body {
-    pub fn get_radius(mass: f32) -> f32 {
+    pub fn get_radius(mass: f64) -> f64 {
         mass.powf(1.0 / 3.0)
     }
 
@@ -46,8 +46,8 @@ impl Body {
         let total_momentum = bodies
             .values()
             .map(|body| body.mass * body.speed)
-            .sum::<Complex<f32>>();
-        let delta = -total_momentum / (BODIES_N as f32 * INITIAL_MASS);
+            .sum::<Complex<f64>>();
+        let delta = -total_momentum / (BODIES_N as f64 * INITIAL_MASS);
         for body in bodies.values_mut() {
             body.speed += delta;
         }
@@ -57,14 +57,14 @@ impl Body {
         let mass = pair
             .iter()
             .map(|body_id| bodies.get(body_id).unwrap().mass)
-            .sum::<f32>();
+            .sum::<f64>();
         let pos = pair
             .iter()
             .map(|body_id| {
                 let body = bodies.get(body_id).unwrap();
                 body.mass * body.pos
             })
-            .sum::<Complex<f32>>()
+            .sum::<Complex<f64>>()
             / mass;
         let speed = pair
             .iter()
@@ -72,7 +72,7 @@ impl Body {
                 let body = bodies.get(body_id).unwrap();
                 body.mass * body.speed
             })
-            .sum::<Complex<f32>>()
+            .sum::<Complex<f64>>()
             / mass;
 
         bodies.remove(&pair[0]);
@@ -91,7 +91,7 @@ impl Body {
 
     pub fn connect_all(bodies: &mut HashMap<BodyID, Body>) {
         loop {
-            let mut deepest_connection_depth = f32::MIN;
+            let mut deepest_connection_depth = f64::MIN;
             let mut deepest_connection_pair: Option<[BodyID; 2]> = None;
 
             for (lhs_body_id, lhs_body) in bodies.iter() {
@@ -120,10 +120,10 @@ impl Body {
     }
 
     pub fn get_earliest_collision(
-        time_lower_bound: f32,
+        time_lower_bound: f64,
         bodies: &mut HashMap<BodyID, Body>,
-    ) -> Option<(f32, [BodyID; 2])> {
-        let mut earliest_collision_time = f32::MAX;
+    ) -> Option<(f64, [BodyID; 2])> {
+        let mut earliest_collision_time = f64::MAX;
         let mut earliest_collision_pair: Option<[BodyID; 2]> = None;
 
         for (lhs_body_id, lhs_body) in bodies.iter() {
@@ -162,7 +162,7 @@ impl Body {
         earliest_collision_pair.map(|pair| (earliest_collision_time, pair))
     }
 
-    pub fn update_bodies(lambda: f32, bodies: &mut HashMap<BodyID, Body>) {
+    pub fn update_bodies(lambda: f64, bodies: &mut HashMap<BodyID, Body>) {
         let collision = Self::get_earliest_collision(lambda, bodies);
         match collision {
             Some((time, pair)) => {
@@ -185,7 +185,7 @@ impl Body {
         }
     }
 
-    pub fn adjust_speed(&mut self, pos: Complex<f32>, mass: f32) {
+    pub fn adjust_speed(&mut self, pos: Complex<f64>, mass: f64) {
         let r = pos - self.pos;
         self.speed += DT * G * mass * r / r.abs().powi(3);
     }

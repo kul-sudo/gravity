@@ -11,19 +11,22 @@ use direct::Direct;
 use grid::Grid;
 use macroquad::prelude::*;
 use num_complex::{Complex, ComplexFloat};
-use std::{collections::HashMap, f32::consts::PI};
+use std::{
+    collections::HashMap,
+    f64::consts::{PI, SQRT_2},
+};
 use zoom::Zoom;
 use zoom::{ZOOM_RANGE, ZOOM_STEP};
 
 const MAX_AVERAGE_LENGTH: usize = 100;
 
-const G: f32 = 0.05;
-const INITIAL_MASS: f32 = 1.0;
-const INITIAL_ABS_SPEED: f32 = 0.05;
+const G: f64 = 0.05;
+const INITIAL_MASS: f64 = 1.0;
+const INITIAL_ABS_SPEED: f64 = 0.05;
 
 const FONT_SIZE: u16 = 50;
 
-const DT: f32 = 1.0;
+const DT: f64 = 1.0;
 
 pub const BORDER_THICKNESS: f32 = 2.0;
 pub const BORDER_COLOR: Color = GREEN;
@@ -56,29 +59,52 @@ async fn main() {
 
     let mut bodies = HashMap::with_capacity(BODIES_N);
 
-    let center = Complex::new(screen_width() / 2.0, screen_height() / 2.0);
-    let initial_radius = Body::get_radius(INITIAL_MASS);
+    let center = Complex::new(screen_width() as f64 / 2.0, screen_height() as f64 / 2.0);
+    let initial_body_radius = Body::get_radius(INITIAL_MASS);
+    let cell_side = initial_body_radius * SQRT_2;
+    let rows_n = (screen_height() as f64 / cell_side).ceil() as usize;
+    let columns_n = (screen_width() as f64 / cell_side).ceil() as usize;
+
+    let mut cells: Vec<Vec<Option<Complex<f64>>>> = vec![vec![None; columns_n]; rows_n];
 
     for _ in 0..BODIES_N {
-        let radius = center.re() * rng.random_range(0.0..1.0).sqrt();
-        let angle = rng.random_range(0.0..2.0 * PI);
-
-        let body = Body {
-            pos: center
+        'main: loop {
+            let radius = center.re() * rng.random_range(0.0..1.0).sqrt();
+            let angle = rng.random_range(0.0..2.0 * PI);
+            let pos = center
                 + Complex::new(
                     radius * angle.cos(),
                     center.im() / center.re() * radius * angle.sin(),
-                ),
-            speed: Complex::from_polar(INITIAL_ABS_SPEED, rng.random_range(0.0..2.0 * PI)),
-            mass: INITIAL_MASS,
-            radius: initial_radius,
-        };
+                );
 
-        bodies.insert(BodyID::now(), body);
+            let i = (pos.im() / cell_side) as usize;
+            let j = (pos.re() / cell_side) as usize;
+
+            for m in i.saturating_sub(2)..(i + 3).min(rows_n) {
+                for n in j.saturating_sub(2)..(j + 3).min(columns_n) {
+                    if let Some(cell_pos) = cells[m][n] {
+                        if (cell_pos - pos).abs() <= initial_body_radius * 2.0 {
+                            continue 'main;
+                        }
+                    }
+                }
+            }
+
+            cells[i][j] = Some(pos);
+
+            let body = Body {
+                pos,
+                speed: Complex::from_polar(INITIAL_ABS_SPEED, rng.random_range(0.0..2.0 * PI)),
+                mass: INITIAL_MASS,
+                radius: initial_body_radius,
+            };
+            bodies.insert(BodyID::now(), body);
+
+            break;
+        }
     }
 
     Body::adjust_momentum(&mut bodies);
-    Body::update_bodies(DT, &mut bodies);
 
     let mut barnes_hut_bodies = bodies.clone();
     let mut grid_bodies = bodies.clone();
@@ -86,7 +112,7 @@ async fn main() {
     let mut direct_durations = Vec::with_capacity(MAX_AVERAGE_LENGTH);
     let mut barnes_hut_durations = direct_durations.clone();
     let mut grid_durations = direct_durations.clone();
-    
+
     let mut always_use_direct = false;
 
     loop {
@@ -107,7 +133,7 @@ async fn main() {
             zoom.zoom = 1.0;
             update = true;
         } else if is_key_pressed(KeyCode::Space) {
-            always_use_direct = !always_use_direct;
+            always_use_direct = true;
         }
 
         if update {
@@ -127,15 +153,15 @@ async fn main() {
 
         // Direct
         Body::update_bodies(DT, &mut bodies);
-        Body::adjust_momentum(&mut bodies);
+        //Body::adjust_momentum(&mut bodies);
 
-        let duration_direct = Direct::handle(&mut bodies).as_nanos() as f32 / bodies.len() as f32;
+        let duration_direct = Direct::handle(&mut bodies).as_nanos() as f64 / bodies.len() as f64;
         if direct_durations.len() == MAX_AVERAGE_LENGTH {
             direct_durations.clear();
         }
         direct_durations.push(duration_direct);
 
-        let direct_average = direct_durations.iter().sum::<f32>() / direct_durations.len() as f32;
+        let direct_average = direct_durations.iter().sum::<f64>() / direct_durations.len() as f64;
 
         // Barnes-Hut
         Body::update_bodies(DT, &mut barnes_hut_bodies);
@@ -146,8 +172,8 @@ async fn main() {
         } else {
             BarnesHut::handle(&mut barnes_hut_bodies, &zoom)
         }
-        .as_nanos() as f32
-            / barnes_hut_bodies.len() as f32;
+        .as_nanos() as f64
+            / barnes_hut_bodies.len() as f64;
 
         if barnes_hut_durations.len() == MAX_AVERAGE_LENGTH {
             barnes_hut_durations.clear();
@@ -155,7 +181,7 @@ async fn main() {
         barnes_hut_durations.push(duration_barnes_hut);
 
         let barnes_hut_average =
-            barnes_hut_durations.iter().sum::<f32>() / barnes_hut_durations.len() as f32;
+            barnes_hut_durations.iter().sum::<f64>() / barnes_hut_durations.len() as f64;
 
         // Grid
         Body::update_bodies(DT, &mut grid_bodies);
@@ -166,21 +192,23 @@ async fn main() {
         } else {
             Grid::handle(&mut grid_bodies, &zoom)
         }
-        .as_nanos() as f32
-            / grid_bodies.len() as f32;
+        .as_nanos() as f64
+            / grid_bodies.len() as f64;
 
         if grid_durations.len() == MAX_AVERAGE_LENGTH {
             grid_durations.clear();
         }
         grid_durations.push(duration_grid);
 
-        let grid_average = grid_durations.iter().sum::<f32>() / grid_durations.len() as f32;
+        let grid_average = grid_durations.iter().sum::<f64>() / grid_durations.len() as f64;
 
-        BarnesHut::adjust_theta(if duration_barnes_hut <= duration_grid {
-            ThetaAdjustment::Decrease
-        } else {
-            ThetaAdjustment::Increase
-        });
+        if !always_use_direct {
+            BarnesHut::adjust_theta(if duration_barnes_hut <= duration_grid {
+                ThetaAdjustment::Decrease
+            } else {
+                ThetaAdjustment::Increase
+            });
+        }
 
         for (hashmap, color) in [
             (&grid_bodies, Grid::COLOR),
@@ -188,7 +216,12 @@ async fn main() {
             (&bodies, Direct::COLOR),
         ] {
             for body in hashmap.values() {
-                draw_circle(body.pos.re(), body.pos.im(), body.radius, color);
+                draw_circle(
+                    body.pos.re() as f32,
+                    body.pos.im() as f32,
+                    body.radius as f32,
+                    color,
+                );
             }
         }
 
@@ -213,8 +246,9 @@ async fn main() {
 
             draw_text_ex(
                 &format!("{}: {}", name, *average as usize),
-                rect.top_left.re(),
-                rect.top_left.im() + measured.unwrap().height * (index + 1) as f32 / zoom.zoom,
+                rect.top_left.re() as f32,
+                rect.top_left.im() as f32
+                    + measured.unwrap().height * (index + 1) as f32 / zoom.zoom,
                 TextParams {
                     font: None,
                     font_size: FONT_SIZE,
@@ -230,8 +264,8 @@ async fn main() {
         let measured = measure_text(text, None, FONT_SIZE, 1.0);
         draw_text_ex(
             text,
-            rect.bottom_right.re() - measured.width / zoom.zoom,
-            rect.top_left.im() + measured.height / zoom.zoom,
+            rect.bottom_right.re() as f32 - measured.width / zoom.zoom,
+            rect.top_left.im() as f32 + measured.height / zoom.zoom,
             TextParams {
                 font: None,
                 font_size: FONT_SIZE,

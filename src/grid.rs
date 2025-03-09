@@ -6,13 +6,13 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub const TAU: f32 = 0.3;
+pub const TAU: f64 = 0.3;
 
 #[derive(Clone)]
 pub struct Cell {
     pub bodies: HashSet<BodyID>,
-    pub total_mass: f32,
-    pub pos: Complex<f32>,
+    pub total_mass: f64,
+    pub pos: Complex<f64>,
 }
 
 impl Cell {
@@ -45,18 +45,18 @@ impl Grid {
         let width = rectangle.bottom_right.re() - rectangle.top_left.re();
         let height = rectangle.bottom_right.im() - rectangle.top_left.im();
 
-        let target_size = ((TAU * width * height) / (bodies.len() as f32).sqrt()).sqrt();
+        let target_size = ((TAU * width * height) / (bodies.len() as f64).sqrt()).sqrt();
 
         let rows_n = ((height / target_size).round() as usize).max(1);
-        let cell_height = height / (rows_n as f32);
+        let cell_height = height / (rows_n as f64);
 
         let columns_n = ((width / cell_height).round() as usize).max(1);
-        let cell_width = width / (columns_n as f32);
+        let cell_width = width / (columns_n as f64);
 
         let mut cells = vec![
             vec![
                 Cell {
-                    bodies: HashSet::with_capacity((TAU * (bodies.len() as f32).sqrt()) as usize),
+                    bodies: HashSet::with_capacity((TAU * (bodies.len() as f64).sqrt()) as usize),
                     total_mass: 0.0,
                     pos: Complex::ZERO,
                 };
@@ -108,10 +108,10 @@ impl Grid {
 
             for i in 0..=rows_n {
                 draw_line(
-                    rectangle.top_left.re(),
-                    rectangle.top_left.im() + i as f32 * cell_height,
-                    rectangle.bottom_right.re(),
-                    rectangle.top_left.im() + i as f32 * cell_height,
+                    rectangle.top_left.re() as f32,
+                    rectangle.top_left.im() as f32 + i as f32 * cell_height as f32,
+                    rectangle.bottom_right.re() as f32,
+                    rectangle.top_left.im() as f32 + i as f32 * cell_height as f32,
                     border,
                     BORDER_COLOR,
                 );
@@ -119,10 +119,10 @@ impl Grid {
 
             for j in 0..=columns_n {
                 draw_line(
-                    rectangle.top_left.re() + j as f32 * cell_width,
-                    rectangle.top_left.im(),
-                    rectangle.top_left.re() + j as f32 * cell_width,
-                    rectangle.bottom_right.im(),
+                    rectangle.top_left.re() as f32 + j as f32 * cell_width as f32,
+                    rectangle.top_left.im() as f32,
+                    rectangle.top_left.re() as f32 + j as f32 * cell_width as f32,
+                    rectangle.bottom_right.im() as f32,
                     border,
                     BORDER_COLOR,
                 );
