@@ -148,7 +148,7 @@ impl Body {
                     let d = b.powi(2) - 4.0 * a * c;
 
                     let d_sqrt = d.sqrt();
-                    if !d_sqrt.is_nan() // sqrt(negative n) = NaN
+                    if !d_sqrt.is_nan() // sqrt(n < 0) = NaN
                     && d_sqrt >= b
                     {
                         let t_min = -(b + d_sqrt) / (2.0 * a);
