@@ -1,7 +1,11 @@
-use crate::{DT, G, INITIAL_MASS, barnes_hut::Rectangle};
+use crate::{DT, barnes_hut::Rectangle};
 use macroquad::prelude::*;
 use num_complex::{Complex, ComplexFloat};
 use std::{collections::HashMap, num::NonZero, time::Instant};
+
+pub const G: f64 = 0.05;
+pub const INITIAL_MASS: f64 = 1.0;
+pub const INITIAL_ABS_SPEED: f64 = 0.05;
 
 pub const BODIES_N: NonZero<usize> = NonZero::new(
     //500 // Recommended for watching the deterministic chaos

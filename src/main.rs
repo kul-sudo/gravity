@@ -6,7 +6,7 @@ mod zoom;
 
 use ::rand::{Rng, SeedableRng, rngs::StdRng};
 use barnes_hut::{BarnesHut, ThetaAdjustment};
-use body::{BODIES_N, Body, BodyID};
+use body::{BODIES_N, Body, BodyID, INITIAL_ABS_SPEED, INITIAL_MASS};
 use direct::Direct;
 use grid::Grid;
 use macroquad::prelude::*;
@@ -21,10 +21,6 @@ use zoom::{
 };
 
 const MAX_AVERAGE_LENGTH: NonZero<usize> = NonZero::new(100).unwrap();
-
-const G: f64 = 0.05;
-const INITIAL_MASS: f64 = 1.0;
-const INITIAL_ABS_SPEED: f64 = 0.05;
 
 const FONT_SIZE: u16 = 50;
 
